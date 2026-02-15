@@ -23,7 +23,7 @@ import time
 import math
 
 # Thread pool for CPU-bound YOLO inference — prevents blocking the async event loop
-_inference_pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="yolo")
+_inference_pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="yolo")
 
 # ==================== APP INITIALIZATION ====================
 
@@ -172,7 +172,7 @@ class DetectionEngine:
         if model is None:
             return [], []
 
-        results = model(frame, conf=0.3, verbose=False)
+        results = model(frame, conf=0.3, imgsz=320, verbose=False)
 
         raw = []
         for r in results:
@@ -258,7 +258,7 @@ class DetectionEngine:
         if model is None:
             return [], []
 
-        results = model(frame, conf=0.35, verbose=False)
+        results = model(frame, conf=0.35, imgsz=320, verbose=False)
         detections = []
         people_boxes, item_map = [], defaultdict(list)
 
@@ -308,7 +308,7 @@ class DetectionEngine:
         if model is None:
             return [], []
 
-        results = model(frame, conf=0.3, verbose=False)
+        results = model(frame, conf=0.3, imgsz=320, verbose=False)
         detections, alerts = [], []
         fire_seen = smoke_seen = False
 
@@ -343,7 +343,7 @@ class DetectionEngine:
         if model is None:
             return [], []
 
-        results = model(frame, conf=0.4, verbose=False)
+        results = model(frame, conf=0.4, imgsz=320, verbose=False)
         detections, alerts = [], []
         count = 0
 
@@ -367,7 +367,7 @@ class DetectionEngine:
         if model is None:
             return [], []
 
-        results = model(frame, conf=0.35, verbose=False)
+        results = model(frame, conf=0.35, imgsz=320, verbose=False)
         detections, alerts = [], []
         falls = 0
 
@@ -405,19 +405,15 @@ class DetectionEngine:
 
     def process_frame(self, frame: np.ndarray, mode: str = "all"):
         dets, alerts = [], []
-        if mode == "all":
-            # Speed: always run people; rotate ONE secondary model per frame
-            self._frame_idx += 1
-            secondary = ["ppe", "fire", "spill", "fall"]
-            chosen = secondary[(self._frame_idx - 1) % len(secondary)]
-            models_to_run = ["people", chosen]
-        else:
-            models_to_run = self.MODE_MAP.get(mode, [mode])
+        models_to_run = self.MODE_MAP.get(mode, self.MODE_MAP["all"])
         for m in models_to_run:
-            fn = getattr(self, self.DETECT_FN[m])
-            d, a = fn(frame)
-            dets.extend(d)
-            alerts.extend(a)
+            try:
+                fn = getattr(self, self.DETECT_FN[m])
+                d, a = fn(frame)
+                dets.extend(d)
+                alerts.extend(a)
+            except Exception as exc:
+                logger.warning(f"Model '{m}' error: {exc}")
         self.stats["active_alerts"] = len(alerts)
         return dets, alerts
 
@@ -616,7 +612,7 @@ async def websocket_endpoint(ws: WebSocket):
     running = True
 
     # ── CPU-optimised settings ───────────────────────────
-    TARGET_FPS = 8           # 8 FPS balances smoothness & CPU load
+    TARGET_FPS = 5           # 5 FPS for running all 5 models on CPU
     FRAME_INTERVAL = 1.0 / TARGET_FPS
     JPEG_QUALITY = 90        # high quality for sharp display
     MAX_W, MAX_H = 1280, 720  # cap size; never upscale

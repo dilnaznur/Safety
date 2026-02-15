@@ -784,12 +784,12 @@
             fireIcon.className = 'fas fa-fire text-green-400';
         }
 
-        $('#statAlerts').textContent = s.active_alerts ?? 0;
+        $('#statAlerts').textContent = totalAlerts;
         $('#statSpills').textContent = s.spill_count ?? 0;
         $('#statFalls').textContent = s.fall_count ?? 0;
 
-        const badge = s.active_alerts || 0;
-        bellBadge.textContent = badge;
+        const badge = totalAlerts || 0;
+        bellBadge.textContent = badge > 99 ? '99+' : badge;
         bellBadge.classList.toggle('hidden', badge === 0);
 
         // Analytics updates (sampled)
