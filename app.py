@@ -172,7 +172,7 @@ class DetectionEngine:
         if model is None:
             return [], []
 
-        results = model(frame, conf=0.3, imgsz=320, verbose=False)
+        results = model(frame, conf=0.3, imgsz=640, verbose=False)
 
         raw = []
         for r in results:
@@ -258,7 +258,7 @@ class DetectionEngine:
         if model is None:
             return [], []
 
-        results = model(frame, conf=0.35, imgsz=320, verbose=False)
+        results = model(frame, conf=0.35, imgsz=640, verbose=False)
         detections = []
         people_boxes, item_map = [], defaultdict(list)
 
@@ -308,7 +308,7 @@ class DetectionEngine:
         if model is None:
             return [], []
 
-        results = model(frame, conf=0.3, imgsz=320, verbose=False)
+        results = model(frame, conf=0.3, imgsz=640, verbose=False)
         detections, alerts = [], []
         fire_seen = smoke_seen = False
 
@@ -343,7 +343,7 @@ class DetectionEngine:
         if model is None:
             return [], []
 
-        results = model(frame, conf=0.4, imgsz=320, verbose=False)
+        results = model(frame, conf=0.4, imgsz=640, verbose=False)
         detections, alerts = [], []
         count = 0
 
@@ -367,7 +367,7 @@ class DetectionEngine:
         if model is None:
             return [], []
 
-        results = model(frame, conf=0.35, imgsz=320, verbose=False)
+        results = model(frame, conf=0.35, imgsz=640, verbose=False)
         detections, alerts = [], []
         falls = 0
 
@@ -513,14 +513,22 @@ class VideoSource:
     def open(self, source=0):
         if self.cap is not None:
             self.cap.release()
-        self.cap = cv2.VideoCapture(source)
+        # Prefer DirectShow on Windows for better camera quality
+        if isinstance(source, int) and os.name == 'nt':
+            self.cap = cv2.VideoCapture(source, cv2.CAP_DSHOW)
+        else:
+            self.cap = cv2.VideoCapture(source)
         if not self.cap.isOpened():
             self.cap = None
             return False
-        # Request HD resolution from webcam (no effect on files)
+        # Request Full HD + autofocus from webcam (no effect on files)
         if source == 0 or source == 1:
-            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+            self.cap.set(cv2.CAP_PROP_AUTOFOCUS, 1)
+            self.cap.set(cv2.CAP_PROP_FOCUS, 0)            # trigger autofocus
+            self.cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 3)     # auto exposure on
+            self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)        # minimize buffering lag
         self.source = source
         return True
 
@@ -550,9 +558,18 @@ video_source = VideoSource()
 
 
 # ── Thread-safe inference wrapper ────────────────────
-def _run_inference(frame, mode_str):
-    """Run YOLO inference in a background thread (called via run_in_executor)."""
-    dets, alerts = engine.process_frame(frame, mode_str)
+def _run_inference(infer_frame, mode_str, display_shape=None):
+    """Run YOLO inference on inference-sized frame, scale boxes to display resolution."""
+    dets, alerts = engine.process_frame(infer_frame, mode_str)
+    # Scale detection coordinates from inference frame to display frame
+    if display_shape is not None:
+        ih, iw = infer_frame.shape[:2]
+        dh, dw = display_shape[:2]
+        if iw != dw or ih != dh:
+            sx, sy = dw / iw, dh / ih
+            for det in dets:
+                x1, y1, x2, y2 = det["bbox"]
+                det["bbox"] = [x1 * sx, y1 * sy, x2 * sx, y2 * sy]
     return dets, alerts
 
 
@@ -611,11 +628,12 @@ async def websocket_endpoint(ws: WebSocket):
     mode = "all"
     running = True
 
-    # ── CPU-optimised settings ───────────────────────────
-    TARGET_FPS = 5           # 5 FPS for running all 5 models on CPU
+    # ── Quality-optimised settings ───────────────────────
+    TARGET_FPS = 10
     FRAME_INTERVAL = 1.0 / TARGET_FPS
-    JPEG_QUALITY = 90        # high quality for sharp display
-    MAX_W, MAX_H = 1280, 720  # cap size; never upscale
+    JPEG_QUALITY = 95        # high quality for sharp display
+    DISPLAY_MAX_W, DISPLAY_MAX_H = 1920, 1080  # display resolution cap
+    INFER_MAX = 640          # inference resolution cap (max dimension)
 
     try:
         while running:
@@ -649,20 +667,33 @@ async def websocket_endpoint(ws: WebSocket):
                 await asyncio.sleep(0.5)
                 continue
 
-            # Smart resize: downscale if larger than cap, never upscale
+            # ── Display frame: cap at display resolution, never upscale ──
             h, w = frame.shape[:2]
-            if w > MAX_W or h > MAX_H:
-                scale = min(MAX_W / w, MAX_H / h)
-                frame = cv2.resize(frame, (int(w * scale), int(h * scale)),
-                                   interpolation=cv2.INTER_AREA)
+            display_frame = frame
+            if w > DISPLAY_MAX_W or h > DISPLAY_MAX_H:
+                dscale = min(DISPLAY_MAX_W / w, DISPLAY_MAX_H / h)
+                display_frame = cv2.resize(frame,
+                    (int(w * dscale), int(h * dscale)),
+                    interpolation=cv2.INTER_LANCZOS4)
+
+            # ── Inference frame: smaller copy for fast YOLO ──
+            dh, dw = display_frame.shape[:2]
+            if dw > INFER_MAX or dh > INFER_MAX:
+                iscale = min(INFER_MAX / dw, INFER_MAX / dh)
+                infer_frame = cv2.resize(display_frame,
+                    (int(dw * iscale), int(dh * iscale)),
+                    interpolation=cv2.INTER_LANCZOS4)
+            else:
+                infer_frame = display_frame
 
             # ── 3. Run YOLO inference in thread pool ────────
             detections, alerts = await asyncio.get_event_loop().run_in_executor(
-                _inference_pool, _run_inference, frame, mode
+                _inference_pool, _run_inference, infer_frame, mode,
+                display_frame.shape
             )
 
-            # ── 4. Encode clean JPEG (frontend canvas draws boxes) ──
-            _, buf = cv2.imencode(".jpg", frame,
+            # ── 4. Encode display frame as high-quality JPEG ──
+            _, buf = cv2.imencode(".jpg", display_frame,
                                  [cv2.IMWRITE_JPEG_QUALITY, JPEG_QUALITY])
             b64 = base64.b64encode(buf).decode()
 
@@ -670,7 +701,7 @@ async def websocket_endpoint(ws: WebSocket):
             clean_dets = [{k: v for k, v in d.items() if k != "center"}
                           for d in detections]
 
-            fh, fw = frame.shape[:2]
+            fh, fw = display_frame.shape[:2]
             stats_snap = dict(engine.stats)
             await ws_manager.send({
                 "type": "frame",
@@ -701,31 +732,38 @@ async def websocket_endpoint(ws: WebSocket):
 
 @app.post("/api/detect-image")
 async def detect_image(file: UploadFile = File(...), mode: str = "all"):
-    """Run detection on a single uploaded image and return results."""
+    """Run detection on a single uploaded image and return detection results.
+    The frontend displays the original file directly — no re-encoding needed."""
     data = await file.read()
     arr = np.frombuffer(data, np.uint8)
     frame = cv2.imdecode(arr, cv2.IMREAD_COLOR)
     if frame is None:
         raise HTTPException(400, "Could not decode image")
 
-    # Smart resize: downscale if needed, never upscale
     h, w = frame.shape[:2]
-    if w > 1280 or h > 720:
-        scale = min(1280 / w, 720 / h)
-        frame = cv2.resize(frame, (int(w * scale), int(h * scale)),
-                           interpolation=cv2.INTER_AREA)
-    detections, alerts = engine.process_frame(frame, mode)
 
-    _, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 92])
-    b64 = base64.b64encode(buf).decode()
+    # Create smaller inference frame for fast YOLO — original kept for display
+    infer_frame = frame
+    if w > 640 or h > 640:
+        iscale = min(640 / w, 640 / h)
+        infer_frame = cv2.resize(frame, (int(w * iscale), int(h * iscale)),
+                                 interpolation=cv2.INTER_LANCZOS4)
 
-    fh, fw = frame.shape[:2]
+    detections, alerts = engine.process_frame(infer_frame, mode)
+
+    # Scale coordinates from inference frame back to original resolution
+    ih, iw = infer_frame.shape[:2]
+    if iw != w or ih != h:
+        sx, sy = w / iw, h / ih
+        for det in detections:
+            x1, y1, x2, y2 = det["bbox"]
+            det["bbox"] = [x1 * sx, y1 * sy, x2 * sx, y2 * sy]
+
     clean_dets = [{k: v for k, v in d.items() if k != "center"} for d in detections]
 
     return {
-        "frame": b64,
-        "frameWidth": fw,
-        "frameHeight": fh,
+        "frameWidth": w,
+        "frameHeight": h,
         "detections": clean_dets,
         "alerts": alerts,
         "stats": dict(engine.stats),
