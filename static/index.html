@@ -1,0 +1,1077 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SafetyVision AI – Industrial Safety Monitoring</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <!-- Google Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Base font — uses body so FA pseudo-elements keep their icon font */
+        body {
+            font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans', 'Liberation Sans',
+                         sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+        }
+
+        /* Glassmorphism */
+        .glass {
+            background: rgba(255,255,255,0.06);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid rgba(255,255,255,0.10);
+        }
+        .glass-strong {
+            background: rgba(30,41,59,0.75);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #3b82f6; border-radius: 4px; }
+
+        /* Animations */
+        @keyframes slideInRight {
+            from { transform: translateX(120%); opacity: 0; }
+            to   { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideOutRight {
+            from { transform: translateX(0); opacity: 1; }
+            to   { transform: translateX(120%); opacity: 0; }
+        }
+        @keyframes fadeInUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to   { transform: translateY(0); opacity: 1; }
+        }
+        @keyframes pulse-ring {
+            0%   { transform: scale(0.9); opacity: 1; }
+            100% { transform: scale(1.6); opacity: 0; }
+        }
+        .animate-slide-in  { animation: slideInRight 0.4s ease-out forwards; }
+        .animate-slide-out { animation: slideOutRight 0.35s ease-in forwards; }
+        .animate-fade-up   { animation: fadeInUp 0.5s ease-out forwards; }
+        .pulse-ring::before {
+            content: '';
+            position: absolute; inset: -4px;
+            border-radius: 50%;
+            border: 2px solid currentColor;
+            animation: pulse-ring 1.5s cubic-bezier(0.4,0,0.6,1) infinite;
+        }
+
+        /* Mode buttons */
+        .mode-btn {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 0.4rem; padding: 0.75rem 0.5rem; border-radius: 0.75rem;
+            background: rgba(51,65,85,0.6); color: #cbd5e1;
+            border: 2px solid transparent; cursor: pointer;
+            transition: all 0.25s ease;
+        }
+        .mode-btn:hover { background: rgba(71,85,105,0.7); color: #e2e8f0; }
+        .mode-btn.active {
+            background: linear-gradient(135deg,#3b82f6,#2563eb);
+            color: #fff; border-color: #60a5fa;
+            box-shadow: 0 0 20px rgba(59,130,246,0.35);
+        }
+        .mode-btn i { font-size: 1.35rem; }
+        .mode-btn span { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
+
+        /* Stat cards */
+        .stat-card {
+            background: rgba(51,65,85,0.45);
+            border-radius: 0.75rem; padding: 1rem;
+            transition: background 0.2s;
+        }
+        .stat-card:hover { background: rgba(51,65,85,0.65); }
+
+        /* Alert items */
+        .alert-item {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0.85rem 1rem; border-radius: 0.75rem; border-left: 4px solid;
+        }
+        .alert-critical { background: rgba(239,68,68,0.08); border-color: #ef4444; }
+        .alert-high     { background: rgba(249,115,22,0.08); border-color: #f97316; }
+        .alert-warning  { background: rgba(234,179,8,0.08);  border-color: #eab308; }
+        .alert-info     { background: rgba(59,130,246,0.08);  border-color: #3b82f6; }
+
+        /* Toast */
+        .toast-container { position: fixed; top: 5rem; right: 1.5rem; z-index: 100; display: flex; flex-direction: column; gap: 0.5rem; pointer-events: none; }
+        .toast { pointer-events: auto; max-width: 360px; }
+
+        /* Tab system */
+        .tab-btn { position: relative; padding: 0.5rem 1.25rem; border-radius: 0.5rem; font-weight: 500; color: #94a3b8; transition: all 0.2s; }
+        .tab-btn:hover { color: #e2e8f0; }
+        .tab-btn.active { color: #fff; background: rgba(59,130,246,0.2); }
+        .tab-btn.active::after { content:''; position:absolute; bottom:-2px; left:25%; right:25%; height:2px; background:#3b82f6; border-radius:1px; }
+
+        /* No-source placeholder */
+        .no-source-overlay {
+            position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background: rgba(15,23,42,0.92); border-radius: 0.75rem; gap: 1rem; z-index: 5;
+        }
+
+        /* Connection dot */
+        .conn-dot { width: 8px; height: 8px; border-radius: 50%; }
+        .conn-dot.online  { background: #22c55e; box-shadow: 0 0 8px #22c55e; }
+        .conn-dot.offline { background: #ef4444; box-shadow: 0 0 8px #ef4444; }
+
+        /* Responsive video */
+        #videoContainer { position: relative; width: 100%; padding-top: 56.25%; overflow: hidden; border-radius: 0.75rem; background: #000; }
+        #videoContainer > * { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        #videoFeed { object-fit: contain; image-rendering: auto; }
+        #detectionCanvas { object-fit: contain; }
+    </style>
+</head>
+
+<body class="bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 min-h-screen text-white antialiased">
+
+<!-- ================== TOAST CONTAINER ================== -->
+<div id="toastContainer" class="toast-container"></div>
+
+<!-- ================== HEADER ================== -->
+<header class="glass-strong sticky top-0 z-50 border-b border-slate-700/50">
+    <div class="max-w-[1600px] mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+        <!-- Logo -->
+        <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                <i class="fas fa-shield-halved text-white text-sm"></i>
+            </div>
+            <div>
+                <h1 class="text-lg sm:text-xl font-bold bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent leading-tight">SafetyVision AI</h1>
+                <p class="text-[10px] text-slate-500 font-medium tracking-wider uppercase hidden sm:block">Industrial Safety Monitoring</p>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <nav class="hidden md:flex items-center gap-1 bg-slate-800/50 rounded-lg p-1">
+            <button class="tab-btn active" data-tab="dashboard"><i class="fas fa-chart-line mr-1.5 text-xs"></i>Dashboard</button>
+            <button class="tab-btn" data-tab="analytics"><i class="fas fa-chart-bar mr-1.5 text-xs"></i>Analytics</button>
+            <button class="tab-btn" data-tab="settings"><i class="fas fa-sliders mr-1.5 text-xs"></i>Settings</button>
+        </nav>
+
+        <!-- Right side -->
+        <div class="flex items-center gap-4">
+            <!-- Connection -->
+            <div class="flex items-center gap-2 text-xs text-slate-400">
+                <div id="connDot" class="conn-dot offline"></div>
+                <span id="connLabel" class="hidden sm:inline">Offline</span>
+            </div>
+            <!-- Notification bell -->
+            <button id="bellBtn" class="relative text-slate-400 hover:text-white transition-colors">
+                <i class="fas fa-bell text-lg"></i>
+                <span id="bellBadge" class="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center leading-none hidden">0</span>
+            </button>
+        </div>
+    </div>
+</header>
+
+<!-- ================== MAIN: DASHBOARD TAB ================== -->
+<main id="tabDashboard" class="max-w-[1600px] mx-auto px-4 sm:px-6 py-6">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- ── LEFT: Video + Alerts ── -->
+        <div class="lg:col-span-2 space-y-6">
+
+            <!-- Video Card -->
+            <section class="glass-strong rounded-2xl p-5">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="font-semibold text-base flex items-center gap-2"><i class="fas fa-video text-blue-400"></i>Live Monitoring Feed</h2>
+                    <div class="flex items-center gap-2">
+                        <label class="text-xs bg-slate-700/60 px-3 py-1.5 rounded-lg cursor-pointer hover:bg-slate-600/60 transition-colors">
+                            <i class="fas fa-upload mr-1.5"></i>Upload Video
+                            <input type="file" id="videoUpload" accept="video/*" class="hidden">
+                        </label>
+                        <button id="btnWebcam" class="text-xs bg-slate-700/60 px-3 py-1.5 rounded-lg hover:bg-slate-600/60 transition-colors">
+                            <i class="fas fa-camera mr-1.5"></i>Webcam
+                        </button>
+                        <label class="text-xs bg-slate-700/60 px-3 py-1.5 rounded-lg cursor-pointer hover:bg-slate-600/60 transition-colors">
+                            <i class="fas fa-image mr-1.5"></i>Upload Image
+                            <input type="file" id="imageUpload" accept="image/*" class="hidden">
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Video -->
+                <div id="videoContainer">
+                    <img id="videoFeed" src="" alt="Live Feed">
+                    <canvas id="detectionCanvas" style="pointer-events:none;z-index:2;"></canvas>
+                    <!-- No-source overlay -->
+                    <div id="noSourceOverlay" class="no-source-overlay">
+                        <i class="fas fa-video-slash text-4xl text-slate-600"></i>
+                        <p class="text-slate-400 font-medium">No video source</p>
+                        <p class="text-xs text-slate-500 text-center max-w-xs">Upload a video or image file, or connect your webcam to start real-time safety monitoring.</p>
+                    </div>
+                    <!-- Upload-mode banner (hidden by default) -->
+                    <div id="uploadBanner" class="absolute bottom-3 left-3 right-3 glass px-4 py-2 rounded-lg text-xs flex items-center justify-between z-10" style="display:none;">
+                        <span><i class="fas fa-image mr-1.5 text-blue-400"></i><span id="uploadBannerText">Upload analysis mode</span></span>
+                        <button id="btnBackToLive" class="ml-3 px-3 py-1 bg-blue-600 hover:bg-blue-500 rounded-md text-xs font-medium transition-colors">Back to Live</button>
+                    </div>
+                    <!-- Overlays -->
+                    <div class="absolute top-3 left-3 flex items-center gap-2 glass px-2.5 py-1 rounded-lg text-xs" id="liveIndicator" style="display:none;">
+                        <div class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                        <span class="font-medium">LIVE</span>
+                    </div>
+                    <div class="absolute top-3 right-3 space-y-1.5" id="videoOverlays" style="display:none;">
+                        <div class="glass px-2.5 py-1 rounded-lg text-xs flex items-center gap-1.5">
+                            <i class="fas fa-gauge-high text-green-400"></i>
+                            <span id="fpsCounter">-- FPS</span>
+                        </div>
+                        <div class="glass px-2.5 py-1 rounded-lg text-xs" id="clockOverlay">--:--:--</div>
+                    </div>
+                </div>
+
+                <!-- Mode selector -->
+                <div class="mt-5">
+                    <p class="text-xs text-slate-500 mb-2 font-medium uppercase tracking-wider">Detection Mode</p>
+                    <div class="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                        <button class="mode-btn active" data-mode="all"><i class="fas fa-layer-group"></i><span>All-in-One</span></button>
+                        <button class="mode-btn" data-mode="people"><i class="fas fa-users"></i><span>People</span></button>
+                        <button class="mode-btn" data-mode="ppe"><i class="fas fa-helmet-safety"></i><span>PPE</span></button>
+                        <button class="mode-btn" data-mode="fire"><i class="fas fa-fire"></i><span>Fire</span></button>
+                        <button class="mode-btn" data-mode="spill"><i class="fas fa-droplet"></i><span>Spills</span></button>
+                        <button class="mode-btn" data-mode="fall"><i class="fas fa-person-falling"></i><span>Falls</span></button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Recent Alerts -->
+            <section class="glass-strong rounded-2xl p-5">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="font-semibold text-base flex items-center gap-2"><i class="fas fa-bell text-yellow-400"></i>Recent Alerts</h2>
+                    <button id="clearAlerts" class="text-xs text-slate-500 hover:text-slate-300 transition-colors">Clear All</button>
+                </div>
+                <div id="alertsList" class="space-y-2 max-h-[340px] overflow-y-auto pr-1">
+                    <div class="text-center text-slate-600 text-sm py-8">
+                        <i class="fas fa-check-circle text-2xl mb-2"></i>
+                        <p>No alerts yet. Start monitoring to see safety alerts here.</p>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- ── RIGHT: Stats ── -->
+        <div class="space-y-6">
+
+            <!-- Live Stats -->
+            <section class="glass-strong rounded-2xl p-5">
+                <h2 class="font-semibold text-base flex items-center gap-2 mb-4"><i class="fas fa-chart-line text-blue-400"></i>Live Statistics</h2>
+
+                <div class="space-y-3">
+
+                    <!-- People -->
+                    <div class="stat-card">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 bg-blue-500/15 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-users text-blue-400"></i>
+                                </div>
+                                <div>
+                                    <p class="text-[11px] text-slate-400 font-medium">Current People</p>
+                                    <p class="text-2xl font-bold leading-tight" id="statPeople">0</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-2.5 grid grid-cols-3 gap-1.5 text-[11px]">
+                            <div class="bg-slate-600/30 p-1.5 rounded text-center">
+                                <p class="text-slate-500">Entered</p>
+                                <p class="font-semibold text-green-400" id="statEntered">0</p>
+                            </div>
+                            <div class="bg-slate-600/30 p-1.5 rounded text-center">
+                                <p class="text-slate-500">Exited</p>
+                                <p class="font-semibold text-red-400" id="statExited">0</p>
+                            </div>
+                            <div class="bg-slate-600/30 p-1.5 rounded text-center">
+                                <p class="text-slate-500">Peak</p>
+                                <p class="font-semibold text-yellow-400" id="statPeak">0</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- PPE -->
+                    <div class="stat-card">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-green-500/15 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-helmet-safety text-green-400"></i>
+                            </div>
+                            <div class="flex-1">
+                                <p class="text-[11px] text-slate-400 font-medium">PPE Compliance</p>
+                                <p class="text-2xl font-bold leading-tight" id="statPPE">0%</p>
+                            </div>
+                        </div>
+                        <div class="mt-2 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                            <div id="ppeBar" class="h-full rounded-full transition-all duration-500" style="width:0%;background:#22c55e;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Fire Risk -->
+                    <div class="stat-card" id="fireCard">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-green-500/15 rounded-lg flex items-center justify-center" id="fireIconBg">
+                                <i class="fas fa-fire text-green-400" id="fireIcon"></i>
+                            </div>
+                            <div>
+                                <p class="text-[11px] text-slate-400 font-medium">Fire Risk Level</p>
+                                <p class="text-xl font-bold leading-tight text-green-400" id="statFire">Safe</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Active Alerts -->
+                    <div class="stat-card">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-red-500/15 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-exclamation-circle text-red-400"></i>
+                            </div>
+                            <div>
+                                <p class="text-[11px] text-slate-400 font-medium">Active Alerts</p>
+                                <p class="text-2xl font-bold leading-tight" id="statAlerts">0</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Spills -->
+                    <div class="stat-card">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-yellow-500/15 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-droplet text-yellow-400"></i>
+                            </div>
+                            <div>
+                                <p class="text-[11px] text-slate-400 font-medium">Spills Today</p>
+                                <p class="text-2xl font-bold leading-tight" id="statSpills">0</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Falls -->
+                    <div class="stat-card">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-purple-500/15 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-person-falling text-purple-400"></i>
+                            </div>
+                            <div>
+                                <p class="text-[11px] text-slate-400 font-medium">Falls Detected</p>
+                                <p class="text-2xl font-bold leading-tight" id="statFalls">0</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Uptime -->
+                    <div class="stat-card">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-cyan-500/15 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-clock text-cyan-400"></i>
+                            </div>
+                            <div>
+                                <p class="text-[11px] text-slate-400 font-medium">Session Uptime</p>
+                                <p class="text-lg font-bold leading-tight" id="statUptime">0h 0m</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Quick Actions -->
+            <section class="glass-strong rounded-2xl p-5">
+                <h3 class="font-semibold text-sm mb-3 text-slate-300">Quick Actions</h3>
+                <div class="space-y-2">
+                    <button id="btnExport" class="w-full bg-blue-600 hover:bg-blue-500 text-white py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 text-sm font-medium transition-colors">
+                        <i class="fas fa-file-export"></i>Export Report
+                    </button>
+                    <button id="btnMute" class="w-full bg-slate-700/80 hover:bg-slate-600 text-white py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 text-sm font-medium transition-colors">
+                        <i class="fas fa-bell-slash"></i>Mute Alerts
+                    </button>
+                    <button id="btnEmergency" class="w-full bg-red-600 hover:bg-red-500 text-white py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 text-sm font-medium transition-colors">
+                        <i class="fas fa-triangle-exclamation"></i>Emergency Stop
+                    </button>
+                </div>
+            </section>
+        </div>
+    </div>
+</main>
+
+<!-- ================== ANALYTICS TAB ================== -->
+<div id="tabAnalytics" class="max-w-[1600px] mx-auto px-4 sm:px-6 py-6 hidden">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Alert Distribution -->
+        <section class="glass-strong rounded-2xl p-5">
+            <h3 class="font-semibold text-sm mb-4 flex items-center gap-2"><i class="fas fa-chart-pie text-blue-400"></i>Alert Distribution</h3>
+            <div class="h-64 flex items-center justify-center">
+                <canvas id="chartAlertDist"></canvas>
+            </div>
+        </section>
+        <!-- Detection Timeline -->
+        <section class="glass-strong rounded-2xl p-5">
+            <h3 class="font-semibold text-sm mb-4 flex items-center gap-2"><i class="fas fa-chart-area text-cyan-400"></i>People Count Timeline</h3>
+            <div class="h-64">
+                <canvas id="chartTimeline"></canvas>
+            </div>
+        </section>
+        <!-- PPE Breakdown -->
+        <section class="glass-strong rounded-2xl p-5">
+            <h3 class="font-semibold text-sm mb-4 flex items-center gap-2"><i class="fas fa-chart-bar text-green-400"></i>PPE Compliance Over Time</h3>
+            <div class="h-64">
+                <canvas id="chartPPE"></canvas>
+            </div>
+        </section>
+        <!-- Incident Summary -->
+        <section class="glass-strong rounded-2xl p-5">
+            <h3 class="font-semibold text-sm mb-4 flex items-center gap-2"><i class="fas fa-list-check text-yellow-400"></i>Session Summary</h3>
+            <div class="space-y-3 text-sm" id="sessionSummary">
+                <div class="flex justify-between"><span class="text-slate-400">Total Alerts</span><span class="font-semibold" id="sumAlerts">0</span></div>
+                <div class="flex justify-between"><span class="text-slate-400">Critical Events</span><span class="font-semibold text-red-400" id="sumCritical">0</span></div>
+                <div class="flex justify-between"><span class="text-slate-400">People Tracked</span><span class="font-semibold" id="sumPeople">0</span></div>
+                <div class="flex justify-between"><span class="text-slate-400">Peak Occupancy</span><span class="font-semibold" id="sumPeak">0</span></div>
+                <div class="flex justify-between"><span class="text-slate-400">Avg PPE Compliance</span><span class="font-semibold" id="sumPPE">0%</span></div>
+                <div class="flex justify-between"><span class="text-slate-400">Spill Events</span><span class="font-semibold" id="sumSpills">0</span></div>
+                <div class="flex justify-between"><span class="text-slate-400">Fall Events</span><span class="font-semibold" id="sumFalls">0</span></div>
+            </div>
+        </section>
+    </div>
+</div>
+
+<!-- ================== SETTINGS TAB ================== -->
+<div id="tabSettings" class="max-w-[1600px] mx-auto px-4 sm:px-6 py-6 hidden">
+    <div class="max-w-2xl mx-auto space-y-6">
+        <section class="glass-strong rounded-2xl p-6">
+            <h3 class="font-semibold text-base mb-5">Connection Settings</h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1 font-medium">Backend WebSocket URL</label>
+                    <input id="settingWsUrl" type="text" class="w-full bg-slate-700/50 border border-slate-600 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="ws://localhost:8000/ws">
+                </div>
+                <button id="btnReconnect" class="bg-blue-600 hover:bg-blue-500 px-5 py-2 rounded-lg text-sm font-medium transition-colors">
+                    <i class="fas fa-plug mr-1.5"></i>Reconnect
+                </button>
+            </div>
+        </section>
+        <section class="glass-strong rounded-2xl p-6">
+            <h3 class="font-semibold text-base mb-5">Alert Settings</h3>
+            <div class="space-y-4">
+                <label class="flex items-center gap-3 cursor-pointer">
+                    <input id="settingSound" type="checkbox" checked class="w-4 h-4 rounded bg-slate-700 border-slate-600 text-blue-500 focus:ring-blue-500">
+                    <span class="text-sm">Play sound on critical alerts</span>
+                </label>
+                <label class="flex items-center gap-3 cursor-pointer">
+                    <input id="settingNotif" type="checkbox" checked class="w-4 h-4 rounded bg-slate-700 border-slate-600 text-blue-500 focus:ring-blue-500">
+                    <span class="text-sm">Browser push notifications</span>
+                </label>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1 font-medium">Max Occupancy Threshold</label>
+                    <input id="settingOccupancy" type="number" value="50" class="w-32 bg-slate-700/50 border border-slate-600 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+            </div>
+        </section>
+        <section class="glass-strong rounded-2xl p-6">
+            <h3 class="font-semibold text-base mb-3">About</h3>
+            <p class="text-sm text-slate-400">SafetyVision AI v1.0.0 — Industrial Safety Monitoring System</p>
+            <p class="text-xs text-slate-500 mt-1">Powered by YOLOv8 &middot; FastAPI &middot; WebSocket</p>
+        </section>
+    </div>
+</div>
+
+<!-- ================== JAVASCRIPT ================== -->
+<script>
+(function() {
+    'use strict';
+
+    // ── Config ──────────────────────────────────────────
+    const DEFAULT_WS = `ws://${location.hostname || 'localhost'}:8000/ws`;
+    const API_BASE   = `http://${location.hostname || 'localhost'}:8000`;
+
+    // ── State ───────────────────────────────────────────
+    let ws = null;
+    let mode = 'all';
+    let connected = false;
+    let muted = false;
+    let uptimeSec = 0;
+    let frameCount = 0;
+    let lastFpsTime = performance.now();
+    let totalAlerts = 0;
+    let criticalAlerts = 0;
+    let alertSoundEnabled = true;
+    let browserNotifEnabled = true;
+
+    // ── Mode separation: live vs upload ─────────────────
+    // When true, WebSocket frames update the video & stats.
+    // When false (upload/image analysis), WS frames are ignored
+    // so the upload result stays on screen.
+    let isLiveMode = true;
+
+    /** Switch dashboard to upload/analysis mode. */
+    function switchToUpload(label) {
+        isLiveMode = false;
+        const banner = $('#uploadBanner');
+        const bannerText = $('#uploadBannerText');
+        if (banner) banner.style.display = '';
+        if (bannerText) bannerText.textContent = label || 'Upload analysis mode';
+        // Hide live indicator, show overlays for static result
+        liveIndicator.style.display = 'none';
+    }
+
+    /** Switch dashboard back to live WebSocket mode. */
+    function switchToLive() {
+        isLiveMode = true;
+        const banner = $('#uploadBanner');
+        if (banner) banner.style.display = 'none';
+        liveIndicator.style.display = '';
+        drawDetections([]);
+        toast('Switched to live mode', 'info');
+    }
+
+    // Analytics data
+    const timelineLabels = [];
+    const timelineData = [];
+    const ppeLabels = [];
+    const ppeData = [];
+    const alertTypeCounts = { Fire: 0, PPE: 0, Spill: 0, Fall: 0, Occupancy: 0, Other: 0 };
+
+    // ── DOM refs ────────────────────────────────────────
+    const $ = (s) => document.querySelector(s);
+    const $$ = (s) => document.querySelectorAll(s);
+
+    const videoFeed = $('#videoFeed');
+    const noSourceOverlay = $('#noSourceOverlay');
+    const liveIndicator = $('#liveIndicator');
+    const videoOverlays = $('#videoOverlays');
+    const fpsCounter = $('#fpsCounter');
+    const clockOverlay = $('#clockOverlay');
+    const alertsList = $('#alertsList');
+    const connDot = $('#connDot');
+    const connLabel = $('#connLabel');
+    const bellBadge = $('#bellBadge');
+
+    // ── Detection Canvas ────────────────────────────────
+    const detectionCanvas = document.getElementById('detectionCanvas');
+    const detCtx = detectionCanvas.getContext('2d');
+    // Will be resized dynamically to match frame dimensions
+    detectionCanvas.width = 1280;
+    detectionCanvas.height = 720;
+
+    function resizeCanvas(w, h) {
+        if (detectionCanvas.width !== w || detectionCanvas.height !== h) {
+            detectionCanvas.width = w;
+            detectionCanvas.height = h;
+        }
+    }
+
+    const DET_COLORS = {
+        'person':'#00ff00','Person':'#ffb400',
+        'Helmet':'#22c55e','Vest':'#22c55e','Boots':'#22c55e',
+        'Glove':'#22c55e','Glass':'#22c55e','Mask':'#22c55e','Ear-protection':'#22c55e',
+        'fire':'#ef4444','smoke':'#f97316',
+        'Falling':'#ef4444','Standing':'#22c55e','Sitting':'#eab308',
+    };
+
+    function getDetColor(cls) {
+        if (DET_COLORS[cls]) return DET_COLORS[cls];
+        if (cls.startsWith('Spill')) return '#eab308';
+        return '#ffffff';
+    }
+
+    function drawDetections(detections) {
+        detCtx.clearRect(0, 0, detectionCanvas.width, detectionCanvas.height);
+        if (!detections || !detections.length) return;
+        for (const det of detections) {
+            const [x1, y1, x2, y2] = det.bbox;
+            const color = getDetColor(det.class);
+            const label = det.id != null
+                ? 'ID:' + det.id + ' ' + Math.round(det.confidence * 100) + '%'
+                : det.class + ' ' + Math.round(det.confidence * 100) + '%';
+
+            // Bounding box
+            detCtx.strokeStyle = color;
+            detCtx.lineWidth = 3;
+            detCtx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+
+            // Corner accents for visibility
+            const cl = Math.min(24, (x2 - x1) / 4, (y2 - y1) / 4);
+            detCtx.lineWidth = 4;
+            detCtx.beginPath();
+            detCtx.moveTo(x1, y1 + cl); detCtx.lineTo(x1, y1); detCtx.lineTo(x1 + cl, y1);
+            detCtx.moveTo(x2 - cl, y1); detCtx.lineTo(x2, y1); detCtx.lineTo(x2, y1 + cl);
+            detCtx.moveTo(x1, y2 - cl); detCtx.lineTo(x1, y2); detCtx.lineTo(x1 + cl, y2);
+            detCtx.moveTo(x2 - cl, y2); detCtx.lineTo(x2, y2); detCtx.lineTo(x2, y2 - cl);
+            detCtx.stroke();
+
+            // Label background
+            detCtx.font = 'bold 14px Inter, sans-serif';
+            const tw = detCtx.measureText(label).width;
+            detCtx.fillStyle = color;
+            detCtx.globalAlpha = 0.85;
+            detCtx.fillRect(x1, y1 - 26, tw + 12, 26);
+            detCtx.globalAlpha = 1;
+
+            // Label text
+            detCtx.fillStyle = '#fff';
+            detCtx.fillText(label, x1 + 6, y1 - 7);
+        }
+    }
+
+    // ── Charts ──────────────────────────────────────────
+    let chartAlertDist, chartTimeline, chartPPE;
+
+    function initCharts() {
+        const chartDefaults = { responsive: true, maintainAspectRatio: false };
+        const scaleDefaults = { grid: { color: 'rgba(148,163,184,0.08)' }, ticks: { color: '#64748b', font: { size: 10 } } };
+
+        chartAlertDist = new Chart($('#chartAlertDist'), {
+            type: 'doughnut',
+            data: {
+                labels: Object.keys(alertTypeCounts),
+                datasets: [{
+                    data: Object.values(alertTypeCounts),
+                    backgroundColor: ['#ef4444','#22c55e','#eab308','#a855f7','#3b82f6','#64748b'],
+                    borderWidth: 0,
+                }]
+            },
+            options: { ...chartDefaults, plugins: { legend: { position: 'right', labels: { color: '#94a3b8', boxWidth: 12, padding: 12 } } } }
+        });
+
+        chartTimeline = new Chart($('#chartTimeline'), {
+            type: 'line',
+            data: { labels: timelineLabels, datasets: [{ label: 'People', data: timelineData, borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.1)', fill: true, tension: 0.4, pointRadius: 0 }] },
+            options: { ...chartDefaults, scales: { x: scaleDefaults, y: { ...scaleDefaults, beginAtZero: true } }, plugins: { legend: { display: false } } }
+        });
+
+        chartPPE = new Chart($('#chartPPE'), {
+            type: 'bar',
+            data: { labels: ppeLabels, datasets: [{ label: 'Compliance %', data: ppeData, backgroundColor: 'rgba(34,197,94,0.5)', borderColor: '#22c55e', borderWidth: 1 }] },
+            options: { ...chartDefaults, scales: { x: scaleDefaults, y: { ...scaleDefaults, beginAtZero: true, max: 100 } }, plugins: { legend: { display: false } } }
+        });
+    }
+
+    // ── WebSocket ────────────────────────────────────────
+    function connect() {
+        const url = $('#settingWsUrl')?.value?.trim() || DEFAULT_WS;
+        if (ws) { try { ws.close(); } catch(e){} }
+
+        ws = new WebSocket(url);
+
+        ws.onopen = () => {
+            connected = true;
+            connDot.classList.replace('offline','online');
+            connLabel.textContent = 'Online';
+            toast('Connected to backend', 'success');
+            ws.send(JSON.stringify({ mode }));
+        };
+
+        ws.onmessage = (e) => {
+            try { handleMessage(JSON.parse(e.data)); } catch(err) { console.error('WS parse error', err); }
+        };
+
+        ws.onerror = () => { console.error('WS error'); };
+
+        ws.onclose = () => {
+            connected = false;
+            connDot.classList.replace('online','offline');
+            connLabel.textContent = 'Offline';
+            setTimeout(connect, 4000);
+        };
+    }
+
+    function sendMode() {
+        if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ mode }));
+    }
+
+    // ── Handle incoming messages ────────────────────────
+    function handleMessage(data) {
+        // If we are in upload/analysis mode, ignore live WS
+        // frames so the upload result stays visible.
+        // We still process 'no_source' so the UI reflects
+        // when the backend has no camera at all.
+        if (!isLiveMode) {
+            // Keep stats & alerts alive even in upload mode
+            if (data.stats) updateStats(data.stats);
+            if (data.alerts?.length) data.alerts.forEach(handleAlert);
+            return;
+        }
+
+        if (data.type === 'no_source') {
+            noSourceOverlay.style.display = '';
+            liveIndicator.style.display = 'none';
+            videoOverlays.style.display = 'none';
+            drawDetections([]);
+            updateStats(data.stats);
+            return;
+        }
+
+        // Frame
+        if (data.frame) {
+            videoFeed.src = 'data:image/jpeg;base64,' + data.frame;
+            noSourceOverlay.style.display = 'none';
+            liveIndicator.style.display = '';
+            videoOverlays.style.display = '';
+            updateFPS();
+            // Sync canvas to actual frame dimensions
+            if (data.frameWidth && data.frameHeight) {
+                resizeCanvas(data.frameWidth, data.frameHeight);
+            }
+            drawDetections(data.detections || []);
+        }
+
+        // Stats
+        if (data.stats) updateStats(data.stats);
+
+        // Alerts
+        if (data.alerts?.length) data.alerts.forEach(handleAlert);
+
+        // Clock
+        clockOverlay.textContent = new Date().toLocaleTimeString('en-GB');
+    }
+
+    function updateFPS() {
+        frameCount++;
+        const now = performance.now();
+        const delta = now - lastFpsTime;
+        if (delta >= 1000) {
+            const fps = Math.round(frameCount * 1000 / delta);
+            fpsCounter.textContent = fps + ' FPS';
+            frameCount = 0;
+            lastFpsTime = now;
+        }
+    }
+
+    // ── Stats ───────────────────────────────────────────
+    function updateStats(s) {
+        if (!s) return;
+        $('#statPeople').textContent = s.people_count ?? 0;
+        $('#statEntered').textContent = s.people_entered ?? 0;
+        $('#statExited').textContent = s.people_exited ?? 0;
+        $('#statPeak').textContent = s.max_people_count ?? 0;
+
+        const ppeVal = s.ppe_compliance ?? 0;
+        $('#statPPE').textContent = ppeVal + '%';
+        const ppeBar = $('#ppeBar');
+        ppeBar.style.width = ppeVal + '%';
+        ppeBar.style.background = ppeVal >= 80 ? '#22c55e' : ppeVal >= 50 ? '#eab308' : '#ef4444';
+
+        const fire = s.fire_risk || 'Safe';
+        const fireEl = $('#statFire');
+        fireEl.textContent = fire;
+        fireEl.className = 'text-xl font-bold leading-tight ' + (fire === 'Safe' ? 'text-green-400' : fire === 'High' ? 'text-yellow-400' : 'text-red-400');
+        const fireIconBg = $('#fireIconBg');
+        const fireIcon = $('#fireIcon');
+        if (fire === 'CRITICAL') {
+            fireIconBg.className = 'w-10 h-10 bg-red-500/15 rounded-lg flex items-center justify-center';
+            fireIcon.className = 'fas fa-fire text-red-400';
+        } else if (fire === 'High') {
+            fireIconBg.className = 'w-10 h-10 bg-yellow-500/15 rounded-lg flex items-center justify-center';
+            fireIcon.className = 'fas fa-fire text-yellow-400';
+        } else {
+            fireIconBg.className = 'w-10 h-10 bg-green-500/15 rounded-lg flex items-center justify-center';
+            fireIcon.className = 'fas fa-fire text-green-400';
+        }
+
+        $('#statAlerts').textContent = s.active_alerts ?? 0;
+        $('#statSpills').textContent = s.spill_count ?? 0;
+        $('#statFalls').textContent = s.fall_count ?? 0;
+
+        const badge = s.active_alerts || 0;
+        bellBadge.textContent = badge;
+        bellBadge.classList.toggle('hidden', badge === 0);
+
+        // Analytics updates (sampled)
+        const now = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+        if (timelineLabels.length === 0 || timelineLabels[timelineLabels.length-1] !== now) {
+            timelineLabels.push(now);
+            timelineData.push(s.people_count ?? 0);
+            if (timelineLabels.length > 60) { timelineLabels.shift(); timelineData.shift(); }
+
+            ppeLabels.push(now);
+            ppeData.push(ppeVal);
+            if (ppeLabels.length > 60) { ppeLabels.shift(); ppeData.shift(); }
+        }
+
+        // Session summary
+        $('#sumPeople').textContent = s.total_people_today ?? 0;
+        $('#sumPeak').textContent = s.max_people_count ?? 0;
+        $('#sumPPE').textContent = ppeVal + '%';
+        $('#sumSpills').textContent = s.spill_count ?? 0;
+        $('#sumFalls').textContent = s.fall_count ?? 0;
+        $('#sumAlerts').textContent = totalAlerts;
+        $('#sumCritical').textContent = criticalAlerts;
+    }
+
+    // ── Alerts ──────────────────────────────────────────
+    const SEVERITY_META = {
+        critical: { cls: 'alert-critical', icon: '<i class="fas fa-circle-xmark text-red-500 text-lg"></i>' },
+        high:     { cls: 'alert-high',     icon: '<i class="fas fa-circle-exclamation text-orange-500 text-lg"></i>' },
+        warning:  { cls: 'alert-warning',  icon: '<i class="fas fa-triangle-exclamation text-yellow-500 text-lg"></i>' },
+        info:     { cls: 'alert-info',     icon: '<i class="fas fa-circle-info text-blue-500 text-lg"></i>' },
+    };
+
+    function handleAlert(alert) {
+        totalAlerts++;
+        if (alert.severity === 'critical') criticalAlerts++;
+
+        // Classify for analytics
+        const t = (alert.type || '').toUpperCase();
+        if (t.includes('FIRE') || t.includes('SMOKE')) alertTypeCounts.Fire++;
+        else if (t.includes('PPE')) alertTypeCounts.PPE++;
+        else if (t.includes('SPILL')) alertTypeCounts.Spill++;
+        else if (t.includes('FALL')) alertTypeCounts.Fall++;
+        else if (t.includes('OCCUPANCY')) alertTypeCounts.Occupancy++;
+        else alertTypeCounts.Other++;
+
+        // UI
+        addAlertUI(alert);
+
+        // Sound
+        if (!muted && alertSoundEnabled && alert.severity === 'critical') playAlertSound();
+
+        // Browser notification
+        if (browserNotifEnabled && Notification.permission === 'granted') {
+            new Notification('SafetyVision AI', { body: alert.message, tag: alert.type });
+        }
+    }
+
+    function addAlertUI(alert) {
+        const meta = SEVERITY_META[alert.severity] || SEVERITY_META.info;
+        const el = document.createElement('div');
+        el.className = `alert-item ${meta.cls} animate-slide-in`;
+        el.innerHTML = `
+            <div class="flex items-center gap-3 flex-1 min-w-0">
+                ${meta.icon}
+                <div class="min-w-0">
+                    <p class="font-semibold text-sm truncate">${escHTML(alert.type.replace(/_/g, ' '))}</p>
+                    <p class="text-xs text-slate-400 truncate">${escHTML(alert.message)}</p>
+                    <p class="text-[10px] text-slate-500 mt-0.5">${new Date(alert.timestamp).toLocaleTimeString('en-GB')}</p>
+                </div>
+            </div>
+            <button onclick="this.closest('.alert-item').classList.add('animate-slide-out');setTimeout(()=>this.closest('.alert-item').remove(),350)" class="shrink-0 ml-2 px-2.5 py-1 bg-slate-600/50 hover:bg-slate-500/50 rounded-lg text-xs transition-colors">Dismiss</button>
+        `;
+
+        // Clear empty placeholder
+        const placeholder = alertsList.querySelector('.text-center');
+        if (placeholder) placeholder.remove();
+
+        alertsList.prepend(el);
+        while (alertsList.children.length > 50) alertsList.lastElementChild.remove();
+    }
+
+    function escHTML(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+    function playAlertSound() {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator(); const gain = ctx.createGain();
+            osc.connect(gain); gain.connect(ctx.destination);
+            osc.type = 'sine'; osc.frequency.value = 880;
+            gain.gain.setValueAtTime(0.3, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+            osc.start(); osc.stop(ctx.currentTime + 0.5);
+        } catch(e) {}
+    }
+
+    // ── Toast ───────────────────────────────────────────
+    function toast(msg, type='info') {
+        const colors = { success:'bg-green-600', error:'bg-red-600', warning:'bg-yellow-600', info:'bg-blue-600' };
+        const el = document.createElement('div');
+        el.className = `toast ${colors[type]||colors.info} px-5 py-3 rounded-xl shadow-2xl text-sm font-medium animate-slide-in`;
+        el.textContent = msg;
+        $('#toastContainer').appendChild(el);
+        setTimeout(() => { el.classList.replace('animate-slide-in','animate-slide-out'); setTimeout(() => el.remove(), 400); }, 3000);
+    }
+
+    // ── Uptime ──────────────────────────────────────────
+    setInterval(() => {
+        uptimeSec++;
+        const h = Math.floor(uptimeSec/3600), m = Math.floor((uptimeSec%3600)/60);
+        $('#statUptime').textContent = `${h}h ${m}m`;
+    }, 1000);
+
+    // ── Update charts periodically ──────────────────────
+    setInterval(() => {
+        if (chartAlertDist) { chartAlertDist.data.datasets[0].data = Object.values(alertTypeCounts); chartAlertDist.update('none'); }
+        if (chartTimeline)  { chartTimeline.update('none'); }
+        if (chartPPE)       { chartPPE.update('none'); }
+    }, 5000);
+
+    // ── Mode buttons ────────────────────────────────────
+    $$('.mode-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            $$('.mode-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            mode = btn.dataset.mode;
+            sendMode();
+            toast(`Detection mode: ${mode.toUpperCase()}`, 'info');
+        });
+    });
+
+    // ── Tab navigation ──────────────────────────────────
+    $$('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            $$('.tab-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            const tab = btn.dataset.tab;
+            ['Dashboard','Analytics','Settings'].forEach(t => {
+                const el = $(`#tab${t}`);
+                if (el) el.classList.toggle('hidden', t.toLowerCase() !== tab);
+            });
+        });
+    });
+
+    // ── File uploads ────────────────────────────────────
+    $('#videoUpload').addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        toast('Uploading video...', 'info');
+        const form = new FormData();
+        form.append('file', file);
+        try {
+            const res = await fetch(`${API_BASE}/api/upload-video`, { method: 'POST', body: form });
+            const data = await res.json();
+            if (data.success) {
+                // Video is now the backend source — live frames will stream it.
+                // Keep live mode ON so WebSocket frames show the uploaded video.
+                switchToLive();
+                toast('Video loaded — streaming with detection', 'success');
+            } else {
+                toast('Failed to load video', 'error');
+            }
+        } catch(err) { toast('Upload failed: ' + err.message, 'error'); }
+        e.target.value = ''; // reset so same file can be re-selected
+    });
+
+    $('#imageUpload').addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Switch to upload mode BEFORE the request so incoming
+        // WS frames don't overwrite the result.
+        switchToUpload('Analyzing image...');
+        toast('Analyzing image...', 'info');
+
+        const form = new FormData();
+        form.append('file', file);
+        try {
+            const res = await fetch(`${API_BASE}/api/detect-image?mode=${mode}`, { method: 'POST', body: form });
+            const data = await res.json();
+            if (data.frame) {
+                videoFeed.src = 'data:image/jpeg;base64,' + data.frame;
+                noSourceOverlay.style.display = 'none';
+                videoOverlays.style.display = '';
+                if (data.frameWidth && data.frameHeight) {
+                    resizeCanvas(data.frameWidth, data.frameHeight);
+                }
+                drawDetections(data.detections || []);
+                switchToUpload(`Image analysis — ${data.detections.length} detections`);
+                updateStats(data.stats);
+                if (data.alerts?.length) data.alerts.forEach(handleAlert);
+                toast(`Image analyzed: ${data.detections.length} detections`, 'success');
+            }
+        } catch(err) {
+            switchToLive(); // revert on failure
+            toast('Image analysis failed: ' + err.message, 'error');
+        }
+        e.target.value = '';
+    });
+
+    // ── Webcam button ───────────────────────────────────
+    $('#btnWebcam').addEventListener('click', async () => {
+        try {
+            const res = await fetch(`${API_BASE}/api/use-webcam`, { method: 'POST' });
+            const data = await res.json();
+            if (data.success) {
+                switchToLive(); // ensure we're in live mode to see webcam
+                toast('Webcam connected', 'success');
+            } else {
+                toast('Webcam not available', 'warning');
+            }
+        } catch(err) { toast('Could not connect webcam', 'error'); }
+    });
+
+    // ── Quick Actions ───────────────────────────────────
+    $('#btnExport').addEventListener('click', () => {
+        const report = {
+            generated: new Date().toISOString(),
+            session_uptime_sec: uptimeSec,
+            total_alerts: totalAlerts,
+            critical_alerts: criticalAlerts,
+            alert_breakdown: { ...alertTypeCounts },
+            stats_snapshot: {
+                people: $('#statPeople').textContent,
+                entered: $('#statEntered').textContent,
+                exited: $('#statExited').textContent,
+                peak_occupancy: $('#statPeak').textContent,
+                ppe_compliance: $('#statPPE').textContent,
+                fire_risk: $('#statFire').textContent,
+                spills: $('#statSpills').textContent,
+                falls: $('#statFalls').textContent,
+            },
+        };
+        const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `safetyvision-report-${Date.now()}.json`;
+        a.click();
+        toast('Report exported', 'success');
+    });
+
+    $('#btnMute').addEventListener('click', function() {
+        muted = !muted;
+        this.innerHTML = muted
+            ? '<i class="fas fa-bell"></i>Unmute Alerts'
+            : '<i class="fas fa-bell-slash"></i>Mute Alerts';
+        toast(muted ? 'Alerts muted' : 'Alerts unmuted', 'info');
+    });
+
+    $('#btnEmergency').addEventListener('click', () => {
+        if (!confirm('Are you sure you want to trigger EMERGENCY STOP?')) return;
+        if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ action: 'emergency_stop' }));
+        document.body.style.boxShadow = 'inset 0 0 100px rgba(239,68,68,0.5)';
+        toast('EMERGENCY STOP ACTIVATED', 'error');
+        setTimeout(() => { document.body.style.boxShadow = ''; }, 3000);
+    });
+
+    $('#clearAlerts').addEventListener('click', () => {
+        alertsList.innerHTML = '<div class="text-center text-slate-600 text-sm py-8"><i class="fas fa-check-circle text-2xl mb-2"></i><p>No alerts.</p></div>';
+    });
+
+    // ── Settings ────────────────────────────────────────
+    $('#settingWsUrl').value = DEFAULT_WS;
+    $('#btnReconnect').addEventListener('click', () => { connect(); toast('Reconnecting...', 'info'); });
+    $('#settingSound').addEventListener('change', (e) => { alertSoundEnabled = e.target.checked; });
+    $('#settingNotif').addEventListener('change', (e) => { browserNotifEnabled = e.target.checked; });
+
+    // ── Notification permission ─────────────────────────
+    if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+    }
+
+    // ── Boot ────────────────────────────────────────────
+    initCharts();
+    connect();
+    clockOverlay.textContent = new Date().toLocaleTimeString('en-GB');
+    setInterval(() => { clockOverlay.textContent = new Date().toLocaleTimeString('en-GB'); }, 1000);
+
+    // Wire up "Back to Live" button
+    const btnBackToLive = $('#btnBackToLive');
+    if (btnBackToLive) btnBackToLive.addEventListener('click', switchToLive);
+
+})();
+</script>
+</body>
+</html>
