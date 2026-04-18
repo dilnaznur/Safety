@@ -53,10 +53,22 @@ _inference_pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="yolo")
 
 app = FastAPI(title="SafetyVision AI", version="2.0.0")
 
+cors_allowed_origins = [
+    "https://guardvision-chi.vercel.app",
+    "https://safety-hjow.onrender.com",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+
+extra_cors = os.getenv("CORS_ALLOWED_ORIGINS", "").strip()
+if extra_cors:
+    cors_allowed_origins.extend([o.strip() for o in extra_cors.split(",") if o.strip()])
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=cors_allowed_origins,
+    allow_origin_regex=r"https://.*\.vercel\.app",
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
