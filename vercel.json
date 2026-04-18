@@ -1,18 +1,9 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "app.py",
-      "use": "@vercel/python@4.3.0"
-    }
-  ],
   "routes": [
     {
-      "src": "/(.*)",
-      "dest": "app.py"
+      "src": "/",
+      "dest": "/static/index.html"
     }
-  ],
-  "env": {
-    "PYTHON_VERSION": "3.11"
-  }
+  ]
 }

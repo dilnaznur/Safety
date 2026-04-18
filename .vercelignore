@@ -2,7 +2,16 @@ node_modules
 .git
 .gitignore
 .env.local
+.env
 venv/
 __pycache__/
 *.log
 .DS_Store
+*.pt
+models/
+demo/models/
+product/models/
+uploads/
+demo/
+product/logs/
+*.sqlite3

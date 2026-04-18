@@ -1,115 +1,38 @@
-# Гайд по деплою на Vercel и Render
+# Deployment Guide
 
-## 🚀 Деплой на Render
+## Architecture
 
-### 1. Подготовка репозитория
+- **Render** hosts the FastAPI backend and YOLO models.
+- **Vercel** hosts the static frontend only.
+- The frontend calls the backend through `API_BASE`.
 
-```bash
-git init
-git add .
-git commit -m "Initial commit"
-git branch -M main
-git remote add origin https://github.com/YOUR_USERNAME/guard.git
-git push -u origin main
-```
+## Render backend
 
-### 2. Создание приложения на Render
+Use the following settings in Render:
 
-1. Перейти на https://render.com
-2. Нажать **"New" → "Web Service"**
-3. Выбрать **"Connect a repository"** и авторизоваться через GitHub
-4. Выбрать репозиторий `guard`
-5. Заполнить параметры:
-   - **Name**: `safetyvision-guard`
-   - **Runtime**: Python 3.11
-   - **Build Command**: `pip install -r requirements.txt`
-   - **Start Command**: `uvicorn app:app --host 0.0.0.0 --port 8000`
+- Build Command: `pip install -r requirements.txt`
+- Start Command: `uvicorn app:app --host 0.0.0.0 --port 8000`
+- Environment Variables: `BOT_TOKEN`, `CHAT_ID`
 
-### 3. Установка переменных окружения
+Useful URLs on Render:
 
-В разделе **"Environment"** добавить:
+- `/health`
+- `/docs`
+- `/api/config`
 
-- `BOT_TOKEN` - ваш Telegram токен
-- `CHAT_ID` - ID вашего Telegram чата
+## Vercel frontend
 
-### 4. Автоматический деплой
+Vercel should only serve the UI from `static/index.html` and the local assets under `static/`.
 
-Render автоматически пересоберет приложение при push на `main`
+Do not use the Python builder on Vercel. The model files are too large for the Vercel function limit.
 
----
+## Notes
 
-## 🌐 Деплой на Vercel
+- If you want to use a different backend URL, set `window.__API_BASE__` before the app script runs.
+- The default backend URL in the UI points to `https://safetyvision-guard.onrender.com`.
 
-### ⚠️ Важно
+## Verification
 
-Vercel имеет **ограничения** для Python приложений:
-
-- Максимальный размер функции: 50MB
-- Timeout: 10 секунд для Free плана
-- YOLO модели (~100MB) могут не поместиться
-
-**Рекомендация**: Используйте Render для продакшена, Vercel - только для фронтенда.
-
-### Если все же нужен Python на Vercel:
-
-1. **Создать аккаунт**: https://vercel.com
-
-2. **Установить Vercel CLI**:
-
-```bash
-npm install -g vercel
-```
-
-3. **Деплой**:
-
-```bash
-vercel
-```
-
-4. **Или через Git**: Подключить GitHub репозиторий в Vercel Dashboard
-
-5. **Установить переменные**:
-   - Перейти в Project Settings → Environment Variables
-   - Добавить `BOT_TOKEN` и `CHAT_ID`
-
----
-
-## 📊 Сравнение платформ
-
-| Функция           | Render            | Vercel         |
-| ----------------- | ----------------- | -------------- |
-| Python приложения | ✅ Отлично        | ⚠️ Ограничено  |
-| Docker            | ✅ Поддерживает   | ❌ Нет         |
-| Размер моделей    | ✅ До 100GB       | ❌ До 50MB     |
-| Бесплатный tier   | ✅ 0.5GB RAM      | ✅ 12x функции |
-| Рекомендация      | **👍 Выбирайте!** | Для фронтенда  |
-
----
-
-## 🔧 Для оптимизации на Render
-
-Если приложение медленное, создайте `.renderignore`:
-
-```
-.git
-.gitignore
-.env.local
-venv/
-__pycache__/
-*.pyc
-.pytest_cache/
-```
-
----
-
-## ✅ Проверка после деплоя
-
-```bash
-# Для Render
-curl https://safetyvision-guard.onrender.com/docs
-
-# Для Vercel
-curl https://YOUR_PROJECT.vercel.app/docs
-```
-
-Если видите Swagger UI документацию - все работает! ✅
+1. Open the Vercel URL and confirm the dashboard loads.
+2. Open the Render URL and confirm `/docs` works.
+3. Trigger one API call from the frontend and confirm it reaches Render.

@@ -781,10 +781,22 @@ async def ping():
     return {"status": "healthy"}
 
 
+@app.head("/ping")
+async def ping_head():
+    """HEAD probe for UptimeRobot monitoring."""
+    return {"status": "healthy"}
+
+
 @app.get("/uptime")
 async def uptime():
     """UptimeRobot compatible endpoint"""
     return {"status": "up", "timestamp": datetime.now().isoformat()}
+
+
+@app.head("/uptime")
+async def uptime_head():
+    """HEAD probe for UptimeRobot monitoring."""
+    return {"status": "up"}
 
 
 # ==================== CONFIGURATION & SYSTEM ENDPOINTS ====================

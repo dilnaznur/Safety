@@ -299,7 +299,10 @@
 (function() {
     'use strict';
 
-    const API_BASE   = `http://${location.hostname || 'localhost'}:8000`;
+    const API_BASE = (window.__API_BASE__ && window.__API_BASE__.trim())
+        || (location.protocol === 'file:'
+            ? 'http://localhost:8000'
+            : location.origin);
 
     // ── State ───────────────────────────────────────────
     let mode = 'all';

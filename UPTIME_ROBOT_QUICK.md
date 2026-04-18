@@ -15,7 +15,7 @@
    Monitor Type:     HTTP(s)
    URL:              https://safetyvision-guard.onrender.com/ping
    Interval:         5 minutes
-   Method:           GET
+   Method:           HEAD (или GET)
    ```
 3. **Create Monitor**
 
@@ -47,7 +47,7 @@
 | **/health** | Полная информация       | ~100ms   |
 | **/uptime** | Альтернатива            | ~50ms    |
 
-**ИСПОЛЬЗУЙТЕ: `/ping`** - самый легкий и быстрый!
+**ИСПОЛЬЗУЙТЕ: `/ping`** - самый легкий и быстрый. Он теперь поддерживает `HEAD`.
 
 ---
 

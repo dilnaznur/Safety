@@ -34,7 +34,7 @@ Monitor Name:              SafetyVision Health Check
 Monitor Type:              HTTP(s)
 URL (or IP):              https://safetyvision-guard.onrender.com/health
 Monitoring Interval:       5 minutes (или 10)
-HTTP Method:              GET
+HTTP Method:              HEAD (или GET)
 ```
 
 ### Шаг 3: Дополнительные настройки (опционально)
