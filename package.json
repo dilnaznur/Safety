@@ -1,0 +1,9 @@
+{
+  "name": "safetyvision-frontend",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "vercel-build": "node build-static.mjs",
+    "build": "node build-static.mjs"
+  }
+}
