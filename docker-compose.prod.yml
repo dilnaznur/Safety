@@ -1,0 +1,100 @@
+version: '3.8'
+
+services:
+  # Main SafetyVision AI service
+  safetyvision:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    container_name: safetyvision-ai
+    
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    
+    environment:
+      # Deployment mode
+      DEPLOYMENT_MODE: ${DEPLOYMENT_MODE:-production}
+      
+      # Performance
+      TARGET_FPS: ${TARGET_FPS:-5}
+      OPTIMIZATION_LEVEL: ${OPTIMIZATION_LEVEL:-optimized}
+      USE_GPU: ${USE_GPU:-false}
+      
+      # RTSP/Surveillance
+      RTSP_URL: ${RTSP_URL:-}
+      RTSP_USERNAME: ${RTSP_USERNAME:-}
+      RTSP_PASSWORD: ${RTSP_PASSWORD:-}
+      
+      # ONVIF
+      ONVIF_ENABLED: ${ONVIF_ENABLED:-false}
+      ONVIF_HOST: ${ONVIF_HOST:-}
+      ONVIF_PORT: ${ONVIF_PORT:-8080}
+      ONVIF_USERNAME: ${ONVIF_USERNAME:-}
+      ONVIF_PASSWORD: ${ONVIF_PASSWORD:-}
+      
+      # Telegram Alerts
+      BOT_TOKEN: ${BOT_TOKEN:-}
+      CHAT_ID: ${CHAT_ID:-}
+      
+      # Python
+      PYTHONUNBUFFERED: 1
+      PYTHONDONTWRITEBYTECODE: 1
+    
+    volumes:
+      # Persistent data
+      - ./logs:/app/logs
+      - ./samples:/app/samples
+      - ./models:/app/models
+      - ./uploads:/app/uploads
+      - ./.env:/app/.env:ro
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '${CPU_LIMIT:-2}'
+          memory: ${MEMORY_LIMIT:-2G}
+        reservations:
+          cpus: '${CPU_RESERVE:-1}'
+          memory: ${MEMORY_RESERVE:-1G}
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    restart: unless-stopped
+    
+    # GPU support (uncomment if using nvidia-docker)
+    # runtime: nvidia
+    # environment:
+    #   NVIDIA_VISIBLE_DEVICES: all
+    #   NVIDIA_DRIVER_CAPABILITIES: compute,utility
+
+  # Optional: Watchtower for auto-updates
+  # watchtower:
+  #   image: containrrr/watchtower
+  #   volumes:
+  #     - /var/run/docker.sock:/var/run/docker.sock
+  #   command: --interval 300 safetyvision-ai
+  #   restart: unless-stopped
+
+  # Optional: Prometheus for metrics
+  # prometheus:
+  #   image: prom/prometheus
+  #   ports:
+  #     - "9090:9090"
+  #   volumes:
+  #     - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+  #     - prometheus_data:/prometheus
+  #   restart: unless-stopped
+
+volumes:
+  prometheus_data:
+
+networks:
+  default:
+    name: safetyvision-network

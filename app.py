@@ -1,10 +1,11 @@
 """
 SafetyVision AI - Industrial Safety Monitoring Backend
 FastAPI + WebSocket + YOLOv8 real-time inference
-Fully offline · Telegram alerts · Multilingual-ready
+Multi-mode: Demo (competitions), Production (surveillance), Development
+Supports RTSP, ONVIF, GPU acceleration, and adaptive performance optimization
 """
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File, HTTPException
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, FileResponse
@@ -16,20 +17,34 @@ import json
 from datetime import datetime
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 from collections import defaultdict
 import logging
 import os
 import time
 import httpx
 from dotenv import load_dotenv
+
+# Import new architecture modules
+from config import Config, DeploymentMode
+from surveillance_connector import RTSPConnector, ONVIFConnector, CameraPool
+from demo_mode import DemoManager, DemoPrecomputeGenerator
+from performance import AdaptiveProcessor, PerformanceMetrics
+
 load_dotenv()
 
-# ==================== CONFIGURATION ====================
+# ==================== CONFIGURATION & INITIALIZATION ====================
 
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
-CHAT_ID = os.environ.get("CHAT_ID", "")
-TELEGRAM_ENABLED = bool(BOT_TOKEN and CHAT_ID)
+# Load global configuration
+config = Config()
+
+logger = logging.getLogger("SafetyVision")
+logging.basicConfig(level=logging.INFO)
+
+# Telegram setup from config
+BOT_TOKEN = config.alerts.bot_token or ""
+CHAT_ID = config.alerts.chat_id or ""
+TELEGRAM_ENABLED = config.alerts.telegram_enabled
 
 # Thread pool for CPU-bound YOLO inference
 _inference_pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="yolo")
@@ -52,6 +67,51 @@ if os.path.exists(STATIC_DIR):
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("SafetyVision")
+
+# ==================== PERFORMANCE MONITORING & DEMO SETUP ====================
+
+# Initialize performance processor
+performance_processor = AdaptiveProcessor(
+    target_fps=config.performance.target_fps,
+    min_fps=1,
+    max_fps=30,
+)
+logger.info(f"Performance monitoring enabled (target: {config.performance.target_fps} FPS)")
+
+# Initialize demo manager if in demo mode
+demo_manager: Optional[DemoManager] = None
+if config.mode == DeploymentMode.DEMO:
+    demo_manager = DemoManager(
+        sample_dir=config.demo.sample_dir,
+        precomputed_dir=config.demo.precomputed_dir if config.demo.use_precomputed else None,
+    )
+    samples = demo_manager.list_samples()
+    logger.info(f"Demo mode: Found {len(samples)} samples: {samples}")
+
+# Initialize camera pool for multi-camera support
+camera_pool: Optional[CameraPool] = None
+if config.mode == DeploymentMode.PRODUCTION:
+    camera_pool = CameraPool(max_cameras=8)
+    
+    # Add RTSP camera if configured
+    if config.surveillance.rtsp_url:
+        camera_pool.add_camera(
+            "primary",
+            rtsp_url=config.surveillance.rtsp_url,
+            username=config.surveillance.rtsp_username,
+            password=config.surveillance.rtsp_password,
+            timeout=config.surveillance.connection_timeout,
+        )
+    
+    # Add ONVIF camera if configured
+    if config.surveillance.onvif_enabled and config.surveillance.onvif_host:
+        camera_pool.add_camera(
+            "onvif_primary",
+            onvif_host=config.surveillance.onvif_host,
+            onvif_port=config.surveillance.onvif_port,
+            onvif_username=config.surveillance.onvif_username,
+            onvif_password=config.surveillance.onvif_password,
+        )
 
 # ==================== TELEGRAM ALERT SERVICE ====================
 
@@ -646,9 +706,103 @@ async def index():
 async def health():
     return {
         "status": "healthy",
+        "mode": config.mode.value,
         "models": {k: ("loaded" if k in model_manager.models else "missing")
                    for k in model_manager.model_paths},
         "telegram": telegram.enabled,
+        "version": "2.1.0",
+    }
+
+
+# ==================== CONFIGURATION & SYSTEM ENDPOINTS ====================
+
+@app.get("/api/config")
+async def get_config():
+    """Get current system configuration"""
+    return config.to_dict()
+
+
+@app.get("/api/system/stats")
+async def get_system_stats():
+    """Get system health and performance statistics"""
+    return {
+        "mode": config.mode.value,
+        "performance": performance_processor.get_metrics().to_dict(),
+        "profiler": performance_processor.profiler.get_stats(),
+        "bottleneck": performance_processor.profiler.find_bottleneck(),
+    }
+
+
+# ==================== DEMO MODE ENDPOINTS ====================
+
+@app.get("/api/demo/samples")
+async def demo_list_samples():
+    """List available demo samples"""
+    if not demo_manager:
+        return {"error": "Demo mode not enabled", "samples": []}
+    
+    samples = demo_manager.list_samples()
+    return {
+        "mode": config.mode.value,
+        "samples": samples,
+        "use_precomputed": config.demo.use_precomputed,
+    }
+
+
+@app.post("/api/demo/load")
+async def demo_load_sample(sample_name: str = Query(...)):
+    """Load a demo sample for playback"""
+    if not demo_manager:
+        raise HTTPException(400, "Demo mode not enabled")
+    
+    if not demo_manager.load_sample(sample_name):
+        raise HTTPException(404, f"Sample not found: {sample_name}")
+    
+    return {
+        "success": True,
+        "sample": sample_name,
+        "progress": demo_manager.get_current_progress(),
+    }
+
+
+@app.get("/api/demo/progress")
+async def demo_get_progress():
+    """Get current demo playback progress"""
+    if not demo_manager:
+        return {"error": "Demo mode not enabled"}
+    
+    return demo_manager.get_current_progress()
+
+
+# ==================== SURVEILLANCE ENDPOINTS ====================
+
+@app.get("/api/cameras/list")
+async def cameras_list():
+    """List connected surveillance cameras"""
+    if not camera_pool:
+        return {"error": "Camera pool not initialized", "cameras": []}
+    
+    cameras = camera_pool.list_cameras()
+    return {
+        "cameras": cameras,
+        "total": len(cameras),
+        "max_cameras": camera_pool.max_cameras,
+    }
+
+
+@app.get("/api/cameras/{camera_name}/stats")
+async def camera_stats(camera_name: str):
+    """Get statistics for a specific camera"""
+    if not camera_pool:
+        raise HTTPException(400, "Camera pool not initialized")
+    
+    cam = camera_pool.get_camera(camera_name)
+    if not cam:
+        raise HTTPException(404, f"Camera not found: {camera_name}")
+    
+    return {
+        "camera": camera_name,
+        "stats": cam.get_stats() if hasattr(cam, 'get_stats') else {},
     }
 
 
@@ -701,40 +855,71 @@ async def websocket_endpoint(ws: WebSocket):
     if video_source.cap is None:
         video_source.open(0)
 
-    mode = "all"
+    detection_mode = "all"
     running = True
-    TARGET_FPS = 10
-    FRAME_INTERVAL = 1.0 / TARGET_FPS
-    JPEG_QUALITY = 90
-    DISPLAY_MAX_W, DISPLAY_MAX_H = 1920, 1080
-    INFER_MAX = 640
+    
+    # Use configuration values
+    JPEG_QUALITY = config.performance.jpeg_quality
+    DISPLAY_MAX_W = config.performance.max_frame_width
+    DISPLAY_MAX_H = config.performance.max_frame_height
+    INFER_MAX = config.performance.inference_width
+    
+    # Infer size from config
+    infer_size = config.performance.get_infer_size()
 
     try:
         while running:
-            t0 = time.monotonic()
+            t0_frame = time.monotonic()
 
             # 1. Drain client messages
             try:
                 raw = await asyncio.wait_for(ws.receive_text(), timeout=0.005)
                 msg = json.loads(raw)
                 if "mode" in msg:
-                    mode = msg["mode"]
+                    detection_mode = msg["mode"]
                 if msg.get("action") == "emergency_stop":
-                    running = False; break
+                    running = False
+                    break
                 if msg.get("source") == "webcam":
                     video_source.open(0)
+                if msg.get("demo_sample"):
+                    # Load demo sample if in demo mode
+                    if demo_manager:
+                        demo_manager.load_sample(msg["demo_sample"])
             except asyncio.TimeoutError:
                 pass
             except json.JSONDecodeError:
                 pass
 
-            # 2. Read frame
-            ret, frame = video_source.read()
-            if not ret or frame is None:
-                await ws_manager.send({"type": "no_source", "stats": dict(engine.stats),
-                                       "timestamp": datetime.now().isoformat()}, ws)
-                await asyncio.sleep(0.5); continue
+            # 2. Check if should skip frame (FPS control)
+            if performance_processor.should_skip_frame():
+                await asyncio.sleep(0.005)
+                continue
 
+            # 3. Read frame (from video source or demo)
+            t0_read = time.monotonic()
+            ret, frame, precomputed_result = False, None, None
+            
+            if config.mode == DeploymentMode.DEMO and demo_manager:
+                # Demo mode: read from demo manager
+                ret, frame, precomputed_result = demo_manager.read_frame()
+            else:
+                # Normal mode: read from video source
+                ret, frame = video_source.read()
+            
+            if not ret or frame is None:
+                await ws_manager.send({
+                    "type": "no_source",
+                    "stats": dict(engine.stats),
+                    "performance": performance_processor.get_metrics().to_dict(),
+                    "timestamp": datetime.now().isoformat()
+                }, ws)
+                await asyncio.sleep(0.5)
+                continue
+
+            read_time_ms = (time.monotonic() - t0_read) * 1000
+
+            # 4. Prepare display frame
             h, w = frame.shape[:2]
             display_frame = frame
             if w > DISPLAY_MAX_W or h > DISPLAY_MAX_H:
@@ -742,42 +927,70 @@ async def websocket_endpoint(ws: WebSocket):
                 display_frame = cv2.resize(frame, (int(w * s), int(h * s)), interpolation=cv2.INTER_AREA)
 
             dh, dw = display_frame.shape[:2]
-            if dw > INFER_MAX or dh > INFER_MAX:
-                s = min(INFER_MAX / dw, INFER_MAX / dh)
+            if dw > infer_size[0] or dh > infer_size[1]:
+                s = min(infer_size[0] / dw, infer_size[1] / dh)
                 infer_frame = cv2.resize(display_frame, (int(dw * s), int(dh * s)), interpolation=cv2.INTER_AREA)
             else:
                 infer_frame = display_frame
 
-            # 3. Inference
-            try:
-                detections, alerts = await asyncio.get_event_loop().run_in_executor(
-                    _inference_pool, _run_inference, infer_frame, mode, display_frame.shape)
-            except Exception as exc:
-                logger.warning(f"Inference error: {exc}")
-                detections, alerts = [], []
+            # 5. Inference or use precomputed results (demo mode)
+            t0_infer = time.monotonic()
+            detections, alerts = [], []
+            
+            if precomputed_result:
+                # Use precomputed results from demo
+                detections = precomputed_result.get("detections", [])
+                alerts = precomputed_result.get("alerts", [])
+            else:
+                # Run live inference
+                try:
+                    detections, alerts = await asyncio.get_event_loop().run_in_executor(
+                        _inference_pool, _run_inference, infer_frame, detection_mode, display_frame.shape)
+                except Exception as exc:
+                    logger.warning(f"Inference error: {exc}")
+                    detections, alerts = [], []
+            
+            infer_time_ms = (time.monotonic() - t0_infer) * 1000
 
-            # 4. Telegram (background)
-            if alerts:
+            # 6. Telegram (background) - only for production critical alerts
+            if alerts and config.mode == DeploymentMode.PRODUCTION:
                 asyncio.create_task(_send_telegram_alerts(alerts, display_frame))
 
-            # 5. Encode JPEG
+            # 7. Encode JPEG
+            t0_encode = time.monotonic()
             try:
                 _, buf = cv2.imencode(".jpg", display_frame, [cv2.IMWRITE_JPEG_QUALITY, JPEG_QUALITY])
                 b64 = base64.b64encode(buf).decode()
             except Exception:
                 continue
+            
+            encode_time_ms = (time.monotonic() - t0_encode) * 1000
 
+            # 8. Record performance metrics
+            performance_processor.on_frame_processed(
+                inference_time_ms=infer_time_ms,
+                read_time_ms=read_time_ms,
+                encode_time_ms=encode_time_ms,
+            )
+
+            # 9. Send response
             fh, fw = display_frame.shape[:2]
             await ws_manager.send({
-                "type": "frame", "frame": b64, "frameWidth": fw, "frameHeight": fh,
+                "type": "frame",
+                "frame": b64,
+                "frameWidth": fw,
+                "frameHeight": fh,
                 "detections": [{k: v for k, v in d.items() if k != "center"} for d in detections],
-                "alerts": alerts, "stats": dict(engine.stats),
+                "alerts": alerts,
+                "stats": dict(engine.stats),
+                "performance": performance_processor.get_metrics().to_dict(),
+                "demo_progress": demo_manager.get_current_progress() if demo_manager else None,
                 "timestamp": datetime.now().isoformat(),
             }, ws)
 
-            elapsed = time.monotonic() - t0
-            if elapsed < FRAME_INTERVAL:
-                await asyncio.sleep(FRAME_INTERVAL - elapsed)
+            # 10. Maintain FPS with intelligent sleep
+            elapsed = time.monotonic() - t0_frame
+            performance_processor.fps_controller.sleep_to_target(elapsed)
 
     except WebSocketDisconnect:
         pass

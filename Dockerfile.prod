@@ -1,0 +1,52 @@
+# Production Dockerfile for SafetyVision AI
+# Optimized for surveillance systems
+
+FROM python:3.11-slim
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies (minimal for production)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libgomp1 \
+    libglib2.0-0 \
+    libatlas-base-dev \
+    libjasper1 \
+    libtiff5 \
+    libjasper1 \
+    curl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY app.py .
+COPY config.py .
+COPY surveillance_connector.py .
+COPY demo_mode.py .
+COPY performance.py .
+
+# Copy static files
+COPY static/ static/
+COPY models/ models/
+
+# Create directories for runtime data
+RUN mkdir -p logs samples/precomputed uploads
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Expose port
+EXPOSE 8000
+
+# Run application
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
