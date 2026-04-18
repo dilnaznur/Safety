@@ -253,6 +253,7 @@ http://localhost:8000
 ```
 
 Features:
+
 - ✅ Real-time video stream
 - ✅ Live detections with boxes
 - ✅ Statistics dashboard
@@ -262,14 +263,14 @@ Features:
 
 ## 🔧 Troubleshooting
 
-| Issue | Solution |
-|-------|----------|
-| **"No camera found"** | Check RTSP URL format, test with ffplay |
-| **Low FPS** | Reduce `TARGET_FPS` or increase `OPTIMIZATION_LEVEL=optimized` |
-| **High CPU** | Lower `TARGET_FPS` or use GPU with `USE_GPU=true` |
+| Issue                    | Solution                                                         |
+| ------------------------ | ---------------------------------------------------------------- |
+| **"No camera found"**    | Check RTSP URL format, test with ffplay                          |
+| **Low FPS**              | Reduce `TARGET_FPS` or increase `OPTIMIZATION_LEVEL=optimized`   |
+| **High CPU**             | Lower `TARGET_FPS` or use GPU with `USE_GPU=true`                |
 | **Telegram not working** | Verify `BOT_TOKEN` and `CHAT_ID`, test with `/api/telegram-test` |
-| **Models not loading** | Check `models/` directory has `.pt` files |
-| **Memory issues** | Reduce frame resolution, lower `TARGET_FPS` |
+| **Models not loading**   | Check `models/` directory has `.pt` files                        |
+| **Memory issues**        | Reduce frame resolution, lower `TARGET_FPS`                      |
 
 ## 📈 Monitoring Performance
 
@@ -280,6 +281,7 @@ GET http://localhost:8000/api/system/stats
 ```
 
 Response includes:
+
 - FPS (actual vs target)
 - Inference time
 - Bottleneck analysis
@@ -296,6 +298,7 @@ Response includes:
 ## 📞 Support
 
 For issues or questions:
+
 1. Check [ARCHITECTURE.md](ARCHITECTURE.md) for detailed guide
 2. Review logs: `docker-compose logs` or check terminal output
 3. Test individual endpoints with curl

@@ -1,0 +1,24 @@
+server:
+  host: 0.0.0.0
+  port: 5000
+
+detection:
+  mode: all
+  fps_per_camera: 1
+
+alerts:
+  no_helmet: true
+  fire: true
+  spill: true
+  fall: true
+
+cameras:
+  - id: cam1
+    name: Main Gate
+    rtsp_url: rtsp://admin:password@192.168.1.100:554/stream1
+    enabled: true
+
+  - id: cam2
+    name: Warehouse
+    rtsp_url: rtsp://admin:password@192.168.1.101:554/stream1
+    enabled: false

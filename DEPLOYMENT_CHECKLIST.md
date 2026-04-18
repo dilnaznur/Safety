@@ -225,14 +225,14 @@ For large-scale deployments, create Kubernetes manifests based on docker-compose
 
 ### Troubleshooting
 
-| Issue | Check |
-|-------|-------|
-| App won't start | Check logs, verify Python version (3.9+), check port 8000 |
-| No detections | Verify models loaded, check camera connection, test with sample image |
-| High CPU | Lower FPS, reduce resolution, use GPU, check inference time |
-| Memory leak | Monitor with `top`, restart service periodically |
-| Telegram not working | Verify token and chat ID, test endpoint |
-| Camera disconnects | Check network, verify RTSP URL, increase timeout |
+| Issue                | Check                                                                 |
+| -------------------- | --------------------------------------------------------------------- |
+| App won't start      | Check logs, verify Python version (3.9+), check port 8000             |
+| No detections        | Verify models loaded, check camera connection, test with sample image |
+| High CPU             | Lower FPS, reduce resolution, use GPU, check inference time           |
+| Memory leak          | Monitor with `top`, restart service periodically                      |
+| Telegram not working | Verify token and chat ID, test endpoint                               |
+| Camera disconnects   | Check network, verify RTSP URL, increase timeout                      |
 
 ### Rollback Procedure
 

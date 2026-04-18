@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>SafetyVision Product</title>
+  <style>
+    :root {
+      --bg1: #0b1220;
+      --bg2: #121a2e;
+      --card: rgba(255, 255, 255, 0.08);
+      --txt: #e5ecff;
+      --muted: #9badcf;
+      --good: #22c55e;
+      --warn: #f59e0b;
+      --bad: #ef4444;
+      --line: rgba(255,255,255,0.15);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      color: var(--txt);
+      background: radial-gradient(circle at 15% 20%, #1d2e5b 0%, transparent 40%),
+                  radial-gradient(circle at 85% 10%, #2f1d5c 0%, transparent 38%),
+                  linear-gradient(160deg, var(--bg1), var(--bg2));
+      min-height: 100vh;
+    }
+    .wrap {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 20px;
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 18px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+      backdrop-filter: blur(6px);
+    }
+    .title {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 700;
+    }
+    .subtitle { color: var(--muted); font-size: 13px; margin-top: 4px; }
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+    select, button {
+      background: #1f2b4c;
+      color: var(--txt);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 14px;
+    }
+    button { cursor: pointer; }
+    button:hover { border-color: #6ea3ff; }
+    #video {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      border-radius: 12px;
+      margin-top: 12px;
+      object-fit: contain;
+      background: #050913;
+      border: 1px solid var(--line);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .stat {
+      background: rgba(0,0,0,0.25);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px;
+    }
+    .stat p { margin: 0; }
+    .label { font-size: 12px; color: var(--muted); }
+    .value { font-size: 22px; font-weight: 700; margin-top: 6px; }
+    .good { color: var(--good); }
+    .warn { color: var(--warn); }
+    .bad { color: var(--bad); }
+    #alerts {
+      margin-top: 10px;
+      max-height: 360px;
+      overflow: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .alert {
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      padding: 8px;
+      font-size: 13px;
+      background: rgba(0,0,0,0.25);
+    }
+    .alert-critical { border-color: rgba(239,68,68,0.6); }
+    .alert-high { border-color: rgba(245,158,11,0.6); }
+    @media (max-width: 1000px) {
+      .wrap { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="card">
+      <h1 class="title">SafetyVision Client System</h1>
+      <div class="subtitle">RTSP Monitoring, 1 FPS processing, local offline dashboard</div>
+
+      <div class="toolbar">
+        <label for="camera">Camera:</label>
+        <select id="camera"></select>
+
+        <label for="mode">Mode:</label>
+        <select id="mode">
+          <option value="all">all</option>
+          <option value="people">people</option>
+          <option value="ppe">ppe</option>
+          <option value="fire">fire</option>
+          <option value="spill">spill</option>
+          <option value="fall">fall</option>
+        </select>
+
+        <button id="applyMode">Apply Mode</button>
+      </div>
+
+      <img id="video" alt="Camera stream">
+    </section>
+
+    <aside class="card">
+      <h2 class="title" style="font-size:18px;">Live Stats</h2>
+      <div class="grid">
+        <div class="stat"><p class="label">People</p><p id="statPeople" class="value">0</p></div>
+        <div class="stat"><p class="label">PPE %</p><p id="statPPE" class="value">0%</p></div>
+        <div class="stat"><p class="label">Fire Risk</p><p id="statFire" class="value">Safe</p></div>
+        <div class="stat"><p class="label">Active Alerts</p><p id="statAlerts" class="value">0</p></div>
+        <div class="stat"><p class="label">Spills</p><p id="statSpills" class="value">0</p></div>
+        <div class="stat"><p class="label">Falls</p><p id="statFalls" class="value">0</p></div>
+      </div>
+
+      <div class="subtitle" style="margin-top:12px;" id="status">Connecting...</div>
+
+      <h3 class="title" style="font-size:16px;margin-top:12px;">Alerts</h3>
+      <div id="alerts"></div>
+    </aside>
+  </div>
+
+  <script src="/frontend/app.js"></script>
+</body>
+</html>

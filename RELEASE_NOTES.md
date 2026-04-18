@@ -74,6 +74,7 @@ New Python modules for better organization:
 ## Backward Compatibility
 
 ✅ **Fully backward compatible**
+
 - Existing WebSocket interface unchanged
 - REST endpoints still work
 - Video file and webcam support preserved
@@ -98,12 +99,14 @@ export RTSP_URL="your_camera_url"
 ## Performance Improvements
 
 ### Before (v2.0.0)
+
 - Single mode operation
 - Fixed 10 FPS
 - No multi-camera support
 - Basic monitoring
 
 ### After (v2.1.0)
+
 - Three optimized modes
 - Variable FPS (1-30)
 - Multi-camera support
@@ -114,12 +117,14 @@ export RTSP_URL="your_camera_url"
 ## New Files
 
 ### Documentation
+
 - `README_NEW.md` - Comprehensive guide
 - `ARCHITECTURE.md` - Technical details (500+ lines)
 - `QUICK_START.md` - Step-by-step setup (350+ lines)
 - `DEPLOYMENT_CHECKLIST.md` - Deployment checklist
 
 ### Code
+
 - `config.py` - 300+ lines
 - `surveillance_connector.py` - 450+ lines
 - `demo_mode.py` - 350+ lines
@@ -127,9 +132,11 @@ export RTSP_URL="your_camera_url"
 - `app_integration.py` - Integration examples
 
 ### Scripts
+
 - `generate_precomputed_demo.py` - Demo result generator
 
 ### Deployment
+
 - `docker-compose.prod.yml` - Production Docker setup
 - `Dockerfile.prod` - Production image
 - `.env.example` - Configuration template
@@ -163,18 +170,18 @@ export DEPLOYMENT_MODE=development  # or demo, production
 
 ## Breaking Changes
 
-**None!** ✅ 
+**None!** ✅
 
 This is a fully backward compatible update. Existing deployments will continue to work without changes.
 
 ## Known Issues & Solutions
 
-| Issue | Solution |
-|-------|----------|
-| Missing `onvif-zeep` | `pip install onvif-zeep` (optional) |
-| RTSP connection fails | Check URL format, verify network |
-| Demo samples not found | Create `samples/` directory and add .mp4 files |
-| Low performance | Check `/api/system/stats` bottleneck, adjust `OPTIMIZATION_LEVEL` |
+| Issue                  | Solution                                                          |
+| ---------------------- | ----------------------------------------------------------------- |
+| Missing `onvif-zeep`   | `pip install onvif-zeep` (optional)                               |
+| RTSP connection fails  | Check URL format, verify network                                  |
+| Demo samples not found | Create `samples/` directory and add .mp4 files                    |
+| Low performance        | Check `/api/system/stats` bottleneck, adjust `OPTIMIZATION_LEVEL` |
 
 ## Roadmap (Future Versions)
 
@@ -205,6 +212,7 @@ Comprehensive testing performed:
 ## Thanks & Credits
 
 Built with:
+
 - FastAPI - Modern web framework
 - YOLOv8 - Object detection
 - OpenCV - Computer vision
@@ -223,4 +231,4 @@ Built with:
 
 ---
 
-**Version 2.1.0** - *Production-Ready Multi-Mode Safety Monitoring Platform*
+**Version 2.1.0** - _Production-Ready Multi-Mode Safety Monitoring Platform_

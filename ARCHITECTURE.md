@@ -76,12 +76,14 @@
 **Purpose**: Showcase AI capabilities with instant results
 
 **Features**:
+
 - Pre-recorded video samples
 - Instant precomputed detection results (no latency)
 - Professional dashboard for live demonstrations
 - Multiple sample scenarios (fire, falls, PPE violations, spills)
 
 **Setup**:
+
 ```bash
 # Create sample directory
 mkdir -p samples/precomputed
@@ -107,6 +109,7 @@ uvicorn app:app --host 0.0.0.0 --port 8000
 ```
 
 **What makes it instant**:
+
 - Precomputed JSON with detection results
 - No real-time inference needed
 - Only frame playback and result display
@@ -117,6 +120,7 @@ uvicorn app:app --host 0.0.0.0 --port 8000
 **Purpose**: Real-time monitoring with actual surveillance cameras
 
 **Features**:
+
 - RTSP/ONVIF camera support
 - Multi-camera monitoring
 - Real critical alerts
@@ -197,6 +201,7 @@ performance = PerformanceConfig(
 ```
 
 **Impact on Speed**:
+
 - **HIGH_QUALITY** (640x640): 16-30 FPS (best accuracy)
 - **BALANCED** (512x512): 8-15 FPS (default)
 - **OPTIMIZED** (416x416): 3-8 FPS (INT8 quantized)
@@ -283,18 +288,20 @@ GET  /api/demo/progress     - Get playback progress
 const ws = new WebSocket("ws://localhost:8000/ws");
 
 // Send commands
-ws.send(JSON.stringify({
-    mode: "all",  // or "people", "fire", "ppe", etc.
+ws.send(
+  JSON.stringify({
+    mode: "all", // or "people", "fire", "ppe", etc.
     source: "webcam",
-}));
+  }),
+);
 
 // Receive frames
 ws.onmessage = (event) => {
-    const data = JSON.parse(event.data);
-    // data.frame - base64 encoded JPEG
-    // data.detections - detection results
-    // data.alerts - active alerts
-    // data.stats - current statistics
+  const data = JSON.parse(event.data);
+  // data.frame - base64 encoded JPEG
+  // data.detections - detection results
+  // data.alerts - active alerts
+  // data.stats - current statistics
 };
 ```
 
@@ -304,7 +311,7 @@ ws.onmessage = (event) => {
 
 ```yaml
 # docker-compose.yml
-version: '3.8'
+version: "3.8"
 
 services:
   safetyvision:
@@ -325,7 +332,7 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2'
+          cpus: "2"
           memory: 2G
 ```
 
@@ -398,14 +405,14 @@ OPTIMIZATION_LEVEL=high
 
 ## 📝 Troubleshooting
 
-| Issue | Solution |
-|-------|----------|
-| Low FPS | Reduce inference_width, use OptimizationLevel.OPTIMIZED |
-| RTSP Connection Failed | Check URL format, verify credentials, test with ffplay |
-| High CPU Usage | Lower target_fps, reduce frame resolution |
-| GPU Not Used | Verify CUDA installation, check device=0 |
-| Memory Leak | Clear frame buffers, check VideoCapture release |
-| Telegram Not Sending | Verify BOT_TOKEN and CHAT_ID, test with /api/telegram-test |
+| Issue                  | Solution                                                   |
+| ---------------------- | ---------------------------------------------------------- |
+| Low FPS                | Reduce inference_width, use OptimizationLevel.OPTIMIZED    |
+| RTSP Connection Failed | Check URL format, verify credentials, test with ffplay     |
+| High CPU Usage         | Lower target_fps, reduce frame resolution                  |
+| GPU Not Used           | Verify CUDA installation, check device=0                   |
+| Memory Leak            | Clear frame buffers, check VideoCapture release            |
+| Telegram Not Sending   | Verify BOT_TOKEN and CHAT_ID, test with /api/telegram-test |
 
 ## 🚀 Quick Start Commands
 

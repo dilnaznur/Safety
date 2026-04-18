@@ -477,7 +477,7 @@ class DetectionEngine:
                     if self._should_alert("smoke"):
                         alerts.append(self._mkalert("SMOKE_DETECTED", "high",
                                                     "Smoke detected – investigate immediately.", xyxy, conf))
-        self.stats["fire_risk"] = "CRITICAL" if fire_seen else ("High" if smoke_seen else "Safe")
+        self.stats["fire_risk"] = "Critical" if fire_seen else ("High" if smoke_seen else "Safe")
         return detections, alerts
 
     def detect_spills(self, frame: np.ndarray):
@@ -557,6 +557,67 @@ class DetectionEngine:
                 logger.warning(f"Model '{m}' error: {exc}")
         self.stats["active_alerts"] = len(alerts)
         return dets, alerts
+
+    def summarize_image_stats(self, detections, alerts):
+        person_boxes = []
+        ppe_person_boxes = []
+        helmet_boxes = []
+        vest_boxes = []
+        fire_seen = False
+        smoke_seen = False
+        spill_count = 0
+        fall_count = 0
+
+        for det in detections:
+            cls_name = str(det.get("class", "")).strip()
+            cls_lower = cls_name.lower()
+            bbox = det.get("bbox")
+
+            if cls_lower == "person":
+                if bbox and len(bbox) == 4:
+                    person_boxes.append(bbox)
+            elif cls_name == "Person":
+                if bbox and len(bbox) == 4:
+                    ppe_person_boxes.append(bbox)
+            elif cls_name == "Helmet":
+                if bbox and len(bbox) == 4:
+                    helmet_boxes.append(bbox)
+            elif cls_name == "Vest":
+                if bbox and len(bbox) == 4:
+                    vest_boxes.append(bbox)
+            elif cls_lower == "fire":
+                fire_seen = True
+            elif cls_lower == "smoke":
+                smoke_seen = True
+            elif cls_name.startswith("Spill"):
+                spill_count += 1
+            elif cls_name == "Falling":
+                fall_count += 1
+
+        if not person_boxes:
+            person_boxes = ppe_person_boxes
+
+        compliant = 0
+        for person_box in person_boxes:
+            has_helmet = self._iou_overlap(person_box, helmet_boxes)
+            has_vest = self._iou_overlap(person_box, vest_boxes)
+            if has_helmet and has_vest:
+                compliant += 1
+
+        people_count = len(person_boxes)
+        ppe_compliance = round((compliant / people_count) * 100, 1) if people_count else 0.0
+        fire_risk = "Critical" if fire_seen else ("High" if smoke_seen else "Safe")
+
+        summary = {
+            "people_count": people_count,
+            "ppe_compliance": ppe_compliance,
+            "fire_risk": fire_risk,
+            "active_alerts": len(alerts),
+            "spill_count": spill_count,
+            "fall_count": fall_count,
+        }
+        self.stats.update(summary)
+        return summary
 
     def _mkalert(self, atype, sev, msg, bbox=None, confidence=None):
         a = {"type": atype, "severity": sev, "message": msg,
@@ -1028,10 +1089,12 @@ async def detect_image(file: UploadFile = File(...), mode: str = "all"):
         if alerts:
             asyncio.create_task(_send_telegram_alerts(alerts, frame))
 
+        stats = engine.summarize_image_stats(detections, alerts)
+
         return {
             "frameWidth": w, "frameHeight": h,
             "detections": [{k: v for k, v in d.items() if k != "center"} for d in detections],
-            "alerts": alerts, "stats": dict(engine.stats),
+            "alerts": alerts, "stats": stats,
         }
     except HTTPException:
         raise
@@ -1044,4 +1107,5 @@ async def detect_image(file: UploadFile = File(...), mode: str = "all"):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=False)
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run("app:app", host="0.0.0.0", port=port, reload=False)

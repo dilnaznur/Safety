@@ -7,20 +7,23 @@ Transform your surveillance system with intelligent detection of critical safety
 ## ✨ Features
 
 ### 🎯 Multi-Mode Architecture
+
 - **DEMO Mode**: Pre-recorded samples with instant results for competitions
 - **PRODUCTION Mode**: Real-time monitoring with RTSP/ONVIF camera support
 - **DEVELOPMENT Mode**: Local testing with webcam
 
 ### 🤖 5 Specialized AI Models
-| Model | Purpose | Accuracy |
-|-------|---------|----------|
-| **People** | Headcount & tracking | 94.4% |
-| **PPE** | Equipment compliance (helmet, vest, gloves) | 97.7% |
-| **Fire** | Fire & smoke detection | 90.2% |
-| **Spill** | Hazardous liquid detection (6 severity levels) | 98.7% |
-| **Fall** | Fall & posture detection | 97.7% |
+
+| Model      | Purpose                                        | Accuracy |
+| ---------- | ---------------------------------------------- | -------- |
+| **People** | Headcount & tracking                           | 94.4%    |
+| **PPE**    | Equipment compliance (helmet, vest, gloves)    | 97.7%    |
+| **Fire**   | Fire & smoke detection                         | 90.2%    |
+| **Spill**  | Hazardous liquid detection (6 severity levels) | 98.7%    |
+| **Fall**   | Fall & posture detection                       | 97.7%    |
 
 ### ⚡ Performance Optimization
+
 - Configurable FPS (1-30 fps)
 - Adaptive quality levels
 - INT8 quantization support
@@ -29,12 +32,14 @@ Transform your surveillance system with intelligent detection of critical safety
 - Performance profiling & bottleneck analysis
 
 ### 🔔 Real-Time Alerts
+
 - **Telegram Notifications** with snapshots
 - **Webhook Support** for custom integrations
 - **Local Logging** of all events
 - **Smart Rate Limiting** to avoid alert spam
 
 ### 📊 Live Dashboard
+
 - Real-time video stream with detections
 - Statistics tracking
 - Performance metrics
@@ -199,18 +204,20 @@ POST   /api/telegram-test        → Test Telegram
 const ws = new WebSocket("ws://localhost:8000/ws");
 
 // Send command
-ws.send(JSON.stringify({
-    mode: "all",  // or "fire", "people", "ppe", etc.
-    source: "webcam"
-}));
+ws.send(
+  JSON.stringify({
+    mode: "all", // or "fire", "people", "ppe", etc.
+    source: "webcam",
+  }),
+);
 
 // Receive frame
 ws.onmessage = (event) => {
-    const {frame, detections, alerts, stats} = JSON.parse(event.data);
-    // frame: base64 JPEG
-    // detections: [{class, confidence, bbox}, ...]
-    // alerts: [{type, severity, message}, ...]
-    // stats: {people_count, ppe_compliance, ...}
+  const { frame, detections, alerts, stats } = JSON.parse(event.data);
+  // frame: base64 JPEG
+  // detections: [{class, confidence, bbox}, ...]
+  // alerts: [{type, severity, message}, ...]
+  // stats: {people_count, ppe_compliance, ...}
 };
 ```
 
@@ -286,6 +293,7 @@ docker-compose -f docker-compose.prod.yml down
 ```
 
 Configuration via `.env` file:
+
 ```env
 DEPLOYMENT_MODE=production
 RTSP_URL=rtsp://camera/stream
@@ -313,20 +321,21 @@ MEMORY_LIMIT=2G
 
 ## 🛠️ Troubleshooting
 
-| Issue | Solution |
-|-------|----------|
-| **Low FPS** | Lower `TARGET_FPS`, increase `OPTIMIZATION_LEVEL=optimized` |
-| **High CPU** | Use `OPTIMIZATION_LEVEL=optimized`, reduce frame size |
-| **No Detections** | Verify models in `models/`, test with sample image |
-| **Telegram Not Working** | Verify `BOT_TOKEN` and `CHAT_ID`, use `/api/telegram-test` |
-| **Camera Not Connecting** | Check RTSP URL, test with `ffplay`, verify network |
-| **Memory Issues** | Lower `TARGET_FPS`, reduce resolution, restart service |
+| Issue                     | Solution                                                    |
+| ------------------------- | ----------------------------------------------------------- |
+| **Low FPS**               | Lower `TARGET_FPS`, increase `OPTIMIZATION_LEVEL=optimized` |
+| **High CPU**              | Use `OPTIMIZATION_LEVEL=optimized`, reduce frame size       |
+| **No Detections**         | Verify models in `models/`, test with sample image          |
+| **Telegram Not Working**  | Verify `BOT_TOKEN` and `CHAT_ID`, use `/api/telegram-test`  |
+| **Camera Not Connecting** | Check RTSP URL, test with `ffplay`, verify network          |
+| **Memory Issues**         | Lower `TARGET_FPS`, reduce resolution, restart service      |
 
 See [DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md) for full troubleshooting guide.
 
 ## 📦 Models
 
 All models are included:
+
 - `models/people_best.pt` (94.4% mAP)
 - `models/ppe_best.pt` (97.7% mAP)
 - `models/fire_best.pt` (90.2% mAP)
@@ -334,6 +343,7 @@ All models are included:
 - `models/fall_best.pt` (97.7% mAP)
 
 Models automatically load on startup. Verify with:
+
 ```bash
 curl http://localhost:8000/health
 ```
@@ -352,6 +362,7 @@ camera_pool.add_camera("office", rtsp_url="rtsp://...")
 ### Precomputed Demo Results
 
 For instant playback without inference lag:
+
 ```bash
 python generate_precomputed_demo.py --all
 ```
@@ -361,6 +372,7 @@ Generates JSON files with pre-processed detections for smooth demos.
 ### Custom Webhooks
 
 Forward alerts to your system:
+
 ```python
 # Configure webhook_url in config.alerts
 # Receives POST with: {type, severity, message, bbox, confidence}
@@ -370,16 +382,17 @@ Forward alerts to your system:
 
 Typical performance on Intel i7 / RTX 3060:
 
-| Setting | FPS | Latency | CPU | GPU |
-|---------|-----|---------|-----|-----|
-| High Quality | 20-30 | 30-50ms | 60% | 80% |
-| Balanced | 10-15 | 65-100ms | 40% | 60% |
-| Optimized | 5-10 | 100-200ms | 25% | 40% |
-| Extreme | 1-5 | 200-1000ms | 10% | 20% |
+| Setting      | FPS   | Latency    | CPU | GPU |
+| ------------ | ----- | ---------- | --- | --- |
+| High Quality | 20-30 | 30-50ms    | 60% | 80% |
+| Balanced     | 10-15 | 65-100ms   | 40% | 60% |
+| Optimized    | 5-10  | 100-200ms  | 25% | 40% |
+| Extreme      | 1-5   | 200-1000ms | 10% | 20% |
 
 ## 🤝 Contributing
 
 Contributions welcome! Areas for improvement:
+
 - [ ] More detection models
 - [ ] Mobile app
 - [ ] Cloud deployment
