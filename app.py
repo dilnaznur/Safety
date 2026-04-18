@@ -775,6 +775,18 @@ async def health():
     }
 
 
+@app.get("/ping")
+async def ping():
+    """Lightweight endpoint for UptimeRobot monitoring - no model loading"""
+    return {"status": "healthy"}
+
+
+@app.get("/uptime")
+async def uptime():
+    """UptimeRobot compatible endpoint"""
+    return {"status": "up", "timestamp": datetime.now().isoformat()}
+
+
 # ==================== CONFIGURATION & SYSTEM ENDPOINTS ====================
 
 @app.get("/api/config")
